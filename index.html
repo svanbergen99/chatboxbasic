@@ -3,41 +3,87 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ChatBox Basic</title>
+  <title>AI Chat Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <main class="app-shell">
-    <aside class="sidebar">
-      <div class="brand">ChatBox</div>
-      <div class="sidebar-label">Onze AI's</div>
-      <button class="contact active" data-agent="Aero" type="button">
-        <span class="avatar">A</span>
-        <span class="contact-copy"><strong>Aero</strong><small>PC & algemene assistent</small><small><span class="dot" id="dot-Aero"></span><span id="status-Aero">controleren...</span></small></span>
-      </button>
-      <button class="contact" data-agent="Diva" type="button">
-        <span class="avatar diva">D</span>
-        <span class="contact-copy"><strong>Diva</strong><small>Creatieve assistent</small><small><span class="dot" id="dot-Diva"></span><span id="status-Diva">controleren...</span></small></span>
-      </button>
-    </aside>
-
-    <section class="chat-panel">
-      <header class="chat-header">
-        <div class="header-person">
-          <span class="avatar" id="headerAvatar">A</span>
-          <div><strong id="headerName">Aero</strong><small id="headerStatus">status controleren...</small></div>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand-wrap">
+        <div class="brand-icon"><i class="fa-solid fa-comments"></i></div>
+        <div>
+          <h1>AI Chat Hub</h1>
+          <p>Multi-Agent Workspace</p>
         </div>
-        <div class="header-title">Aero & Diva</div>
-      </header>
+      </div>
+      <div class="top-actions">
+        <button class="icon-btn" type="button" aria-label="Instellingen"><i class="fa-solid fa-gear"></i></button>
+        <span class="divider"></span>
+        <div class="user-badge">B</div>
+        <span class="user-name">Bas</span>
+      </div>
+    </header>
 
-      <section id="chat" class="chat"></section>
+    <div class="workspace">
+      <aside class="sidebar">
+        <div class="search-wrap">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input id="contactSearch" type="search" placeholder="Zoek assistent..." autocomplete="off">
+        </div>
 
-      <form id="form" class="composer">
-        <textarea id="message" placeholder="Typ een bericht aan Aero..." rows="1" autofocus></textarea>
-        <button type="submit" aria-label="Sturen">➤</button>
-      </form>
-    </section>
-  </main>
+        <div class="contact-list" id="contactList">
+          <button class="contact active" data-agent="Aero" type="button">
+            <span class="avatar aero-avatar">A</span>
+            <span class="contact-copy">
+              <span class="contact-top"><strong>Aero</strong><small>AI</small></span>
+              <span class="contact-role">PC & algemene assistent</span>
+              <span class="contact-status"><span class="dot" id="dot-Aero"></span><span id="status-Aero">controleren...</span></span>
+            </span>
+          </button>
+
+          <button class="contact" data-agent="Diva" type="button">
+            <span class="avatar diva-avatar">D</span>
+            <span class="contact-copy">
+              <span class="contact-top"><strong>Diva</strong><small>AI</small></span>
+              <span class="contact-role">Creatieve assistent</span>
+              <span class="contact-status"><span class="dot" id="dot-Diva"></span><span id="status-Diva">controleren...</span></span>
+            </span>
+          </button>
+        </div>
+      </aside>
+
+      <main class="chat-panel">
+        <header class="chat-header">
+          <div class="header-person">
+            <span class="avatar aero-avatar" id="headerAvatar">A</span>
+            <div>
+              <strong id="headerName">Aero</strong>
+              <span id="headerRole">PC & algemene assistent</span>
+              <small id="headerStatus">status controleren...</small>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button class="icon-btn" type="button" aria-label="Meer opties"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+          </div>
+        </header>
+
+        <section id="chat" class="chat"></section>
+
+        <footer class="composer-wrap">
+          <form id="form" class="composer">
+            <button class="attach-btn" type="button" aria-label="Bijlage"><i class="fa-solid fa-paperclip"></i></button>
+            <textarea id="message" placeholder="Typ een bericht aan Aero..." rows="1" autofocus></textarea>
+            <button class="send-btn" type="submit" aria-label="Sturen"><i class="fa-solid fa-paper-plane"></i></button>
+          </form>
+        </footer>
+      </main>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
 </body>
 </html>
