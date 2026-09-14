@@ -13,14 +13,18 @@ DIVA_URL = os.environ.get("DIVA_URL", "http://127.0.0.1:8090/api/chat")
 
 def call_agent(url: str, message: str) -> dict:
     payload = json.dumps({"message": message}).encode("utf-8")
-    request = urllib.request.Request(
-        url,
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
+    request = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
     with urllib.request.urlopen(request, timeout=600) as response:
         return json.loads(response.read().decode("utf-8"))
+
+
+def agent_online(chat_url: str) -> bool:
+    health_url = chat_url.rsplit("/api/chat", 1)[0] + "/api/health"
+    try:
+        with urllib.request.urlopen(health_url, timeout=2) as response:
+            return 200 <= response.status < 300
+    except Exception:
+        return False
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -38,6 +42,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/api/health":
             return self.send_json({"ok": True})
+        if self.path == "/api/status":
+            return self.send_json({"Aero": agent_online(AERO_URL), "Diva": agent_online(DIVA_URL)})
         if self.path == "/":
             path = ROOT / "index.html"
         else:
