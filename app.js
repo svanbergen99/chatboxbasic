@@ -11,7 +11,7 @@ let activeAgent=localStorage.getItem('chatboxbasic_agent')||'Aero';
 let busy=false;
 
 const roles={Aero:'PC & algemene assistent',Diva:'Creatieve assistent'};
-const TEST_API='https://catfact.ninja/fact';
+const TEST_API='https://api.github.com/zen';
 function key(agent){return `chatboxbasic_history_${agent.toLowerCase()}`}
 function load(agent){try{return JSON.parse(localStorage.getItem(key(agent))||'[]')}catch{return []}}
 function save(agent,items){localStorage.setItem(key(agent),JSON.stringify(items.slice(-200)))}
@@ -48,18 +48,18 @@ function updateHeaderStatus(){
   headerStatus.style.color=headerStatus.textContent==='online'?'#059669':'#9ca3af';
 }
 async function publicApiReply(){
-  const r=await fetch(TEST_API,{cache:'no-store'});
+  const r=await fetch(TEST_API,{cache:'no-store',headers:{'Accept':'text/plain'}});
   if(!r.ok)throw new Error(`Test-API ${r.status}`);
-  const j=await r.json();
-  return `Test-API werkt. ${j.fact||'Antwoord ontvangen.'}`;
+  const text=(await r.text()).trim();
+  return `Test-API werkt. ${text||'Antwoord ontvangen.'}`;
 }
 async function checkStatus(){
   try{
-    const r=await fetch('/api/status',{cache:'no-store'});
+    const r=await fetch('./api/status',{cache:'no-store'});
     if(!r.ok)throw new Error('lokale backend niet bereikbaar');
     const j=await r.json();setStatus('Aero',!!j.Aero);setStatus('Diva',!!j.Diva);return;
   }catch{}
-  try{await fetch(TEST_API,{cache:'no-store'});setStatus('Aero',true);setStatus('Diva',false)}
+  try{const r=await fetch(TEST_API,{cache:'no-store'});setStatus('Aero',r.ok);setStatus('Diva',false)}
   catch{setStatus('Aero',false);setStatus('Diva',false)}
 }
 contacts.forEach(c=>c.addEventListener('click',()=>selectAgent(c.dataset.agent)));
@@ -72,7 +72,7 @@ form.addEventListener('submit',async e=>{
   try{
     let reply='';
     try{
-      const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:outgoing})});
+      const r=await fetch('./api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:outgoing})});
       if(!r.ok)throw new Error(`backend ${r.status}`);
       const j=await r.json();reply=j.reply||j.error||'';
       if(!reply)throw new Error('geen antwoord');
