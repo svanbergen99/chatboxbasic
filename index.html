@@ -7,13 +7,36 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <main class="app">
-    <header>ChatBox Basic</header>
-    <section id="chat" class="chat"></section>
-    <form id="form" class="composer">
-      <textarea id="message" placeholder="Typ je bericht..." autofocus></textarea>
-      <button type="submit">Stuur</button>
-    </form>
+  <main class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">ChatBox</div>
+      <div class="sidebar-label">Assistenten</div>
+      <button class="contact active" data-agent="Aero" type="button">
+        <span class="avatar">A</span>
+        <span class="contact-copy"><strong>Aero</strong><small><span class="dot" id="dot-Aero"></span><span id="status-Aero">controleren...</span></small></span>
+      </button>
+      <button class="contact" data-agent="Diva" type="button">
+        <span class="avatar diva">D</span>
+        <span class="contact-copy"><strong>Diva</strong><small><span class="dot" id="dot-Diva"></span><span id="status-Diva">controleren...</span></small></span>
+      </button>
+    </aside>
+
+    <section class="chat-panel">
+      <header class="chat-header">
+        <div class="header-person">
+          <span class="avatar" id="headerAvatar">A</span>
+          <div><strong id="headerName">Aero</strong><small id="headerStatus">status controleren...</small></div>
+        </div>
+        <div class="header-title">ChatBox Basic</div>
+      </header>
+
+      <section id="chat" class="chat"></section>
+
+      <form id="form" class="composer">
+        <textarea id="message" placeholder="Typ een bericht aan Aero..." rows="1" autofocus></textarea>
+        <button type="submit" aria-label="Sturen">➤</button>
+      </form>
+    </section>
   </main>
   <script src="/app.js"></script>
 </body>
