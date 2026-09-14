@@ -7,7 +7,11 @@ import urllib.request
 ROOT = Path(__file__).resolve().parent
 HOST = os.environ.get("CHATBOX_HOST", "127.0.0.1")
 PORT = int(os.environ.get("CHATBOX_PORT", "8080"))
-AERO_URL = os.environ.get("AERO_URL", "http://127.0.0.1:8091/api/chat")
+
+# AI CORE ADAPTER
+# Nu gekoppeld aan Aero (de huidige lokale chat-core).
+# Later hoef je alleen AI_CORE_URL te vervangen door de URL van je eigen AI core.
+AI_CORE_URL = os.environ.get("AI_CORE_URL", os.environ.get("AERO_URL", "http://127.0.0.1:8091/api/chat"))
 DIVA_URL = os.environ.get("DIVA_URL", "http://127.0.0.1:8090/api/chat")
 
 
@@ -43,7 +47,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/health":
             return self.send_json({"ok": True})
         if self.path == "/api/status":
-            return self.send_json({"Aero": agent_online(AERO_URL), "Diva": agent_online(DIVA_URL)})
+            return self.send_json({"Aero": agent_online(AI_CORE_URL), "Diva": agent_online(DIVA_URL)})
         if self.path == "/":
             path = ROOT / "index.html"
         else:
@@ -72,7 +76,7 @@ class Handler(BaseHTTPRequestHandler):
             if not message:
                 return self.send_json({"error": "Leeg bericht."}, 400)
             is_diva = message.lower().startswith("diva:") or message.lower().startswith("diva ")
-            url = DIVA_URL if is_diva else AERO_URL
+            url = DIVA_URL if is_diva else AI_CORE_URL
             result = call_agent(url, message)
             reply = result.get("reply") or result.get("error") or "Geen antwoord ontvangen."
             return self.send_json({"reply": reply, "agent": "Diva" if is_diva else "Aero"})
