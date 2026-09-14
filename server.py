@@ -9,10 +9,14 @@ HOST = os.environ.get("CHATBOX_HOST", "127.0.0.1")
 PORT = int(os.environ.get("CHATBOX_PORT", "8080"))
 
 # AI CORE ADAPTER
-# Nu gekoppeld aan Aero (de huidige lokale chat-core).
-# Later hoef je alleen AI_CORE_URL te vervangen door de URL van je eigen AI core.
 AI_CORE_URL = os.environ.get("AI_CORE_URL", os.environ.get("AERO_URL", "http://127.0.0.1:8091/api/chat"))
 DIVA_URL = os.environ.get("DIVA_URL", "http://127.0.0.1:8090/api/chat")
+
+# DEVICE SECURITY
+# Comma-separated device IDs. Empty = not enforced yet.
+ALLOWED_DEVICE_IDS = {
+    item.strip() for item in os.environ.get("CHATBOX_ALLOWED_DEVICES", "").split(",") if item.strip()
+}
 
 
 def call_agent(url: str, message: str) -> dict:
@@ -43,11 +47,28 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def device_id(self):
+        return (self.headers.get("X-Device-ID") or "").strip()
+
+    def device_allowed(self):
+        return not ALLOWED_DEVICE_IDS or self.device_id() in ALLOWED_DEVICE_IDS
+
     def do_GET(self):
         if self.path == "/api/health":
             return self.send_json({"ok": True})
+        if self.path == "/api/device":
+            return self.send_json({
+                "deviceId": self.device_id(),
+                "securityEnabled": bool(ALLOWED_DEVICE_IDS),
+                "allowed": self.device_allowed(),
+            })
         if self.path == "/api/status":
-            return self.send_json({"Aero": agent_online(AI_CORE_URL), "Diva": agent_online(DIVA_URL)})
+            return self.send_json({
+                "Aero": agent_online(AI_CORE_URL),
+                "Diva": agent_online(DIVA_URL),
+                "deviceSecurity": bool(ALLOWED_DEVICE_IDS),
+                "deviceAllowed": self.device_allowed(),
+            })
         if self.path == "/":
             path = ROOT / "index.html"
         else:
@@ -69,6 +90,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path != "/api/chat":
             return self.send_error(404)
+        if not self.device_allowed():
+            return self.send_json({"error": "Dit apparaat is niet goedgekeurd."}, 403)
         try:
             length = int(self.headers.get("Content-Length", "0"))
             data = json.loads(self.rfile.read(length) or b"{}")
@@ -86,4 +109,8 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print(f"ChatBox Basic: http://{HOST}:{PORT}")
+    if ALLOWED_DEVICE_IDS:
+        print(f"Device security: ON ({len(ALLOWED_DEVICE_IDS)} approved)")
+    else:
+        print("Device security: prepared, allowlist not configured")
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
