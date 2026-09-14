@@ -12,6 +12,14 @@ let busy=false;
 
 const roles={Aero:'PC & algemene assistent',Diva:'Creatieve assistent'};
 const TEST_API='https://api.github.com/zen';
+const DEVICE_KEY='chatboxbasic_device_id';
+function makeDeviceId(){
+  if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();
+  return 'dev-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,14);
+}
+function getDeviceId(){let id=localStorage.getItem(DEVICE_KEY);if(!id){id=makeDeviceId();localStorage.setItem(DEVICE_KEY,id)}return id}
+const DEVICE_ID=getDeviceId();
+function apiHeaders(extra={}){return {'X-Device-ID':DEVICE_ID,...extra}}
 function key(agent){return `chatboxbasic_history_${agent.toLowerCase()}`}
 function load(agent){try{return JSON.parse(localStorage.getItem(key(agent))||'[]')}catch{return []}}
 function save(agent,items){localStorage.setItem(key(agent),JSON.stringify(items.slice(-200)))}
@@ -55,9 +63,11 @@ async function publicApiReply(){
 }
 async function checkStatus(){
   try{
-    const r=await fetch('./api/status',{cache:'no-store'});
+    const r=await fetch('./api/status',{cache:'no-store',headers:apiHeaders()});
     if(!r.ok)throw new Error('lokale backend niet bereikbaar');
-    const j=await r.json();setStatus('Aero',!!j.Aero);setStatus('Diva',!!j.Diva);return;
+    const j=await r.json();
+    if(j.deviceSecurity&&j.deviceAllowed===false){setStatus('Aero',false);setStatus('Diva',false);return}
+    setStatus('Aero',!!j.Aero);setStatus('Diva',!!j.Diva);return;
   }catch{}
   try{const r=await fetch(TEST_API,{cache:'no-store'});setStatus('Aero',r.ok);setStatus('Diva',false)}
   catch{setStatus('Aero',false);setStatus('Diva',false)}
@@ -72,11 +82,13 @@ form.addEventListener('submit',async e=>{
   try{
     let reply='';
     try{
-      const r=await fetch('./api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:outgoing})});
+      const r=await fetch('./api/chat',{method:'POST',headers:apiHeaders({'Content-Type':'application/json'}),body:JSON.stringify({message:outgoing})});
+      if(r.status===403){const j=await r.json().catch(()=>({}));throw new Error(j.error||'Dit apparaat is niet goedgekeurd.')}
       if(!r.ok)throw new Error(`backend ${r.status}`);
       const j=await r.json();reply=j.reply||j.error||'';
       if(!reply)throw new Error('geen antwoord');
-    }catch{
+    }catch(err){
+      if(String(err.message||'').toLowerCase().includes('niet goedgekeurd'))throw err;
       reply=await publicApiReply();
     }
     wait.remove();add('bot',reply);
