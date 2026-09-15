@@ -1,0 +1,60 @@
+.composer-card{
+  border-radius:20px;
+  padding:12px 14px 10px;
+}
+
+.composer-card textarea{
+  min-height:48px;
+  max-height:140px;
+  font-size:16px;
+  line-height:1.45;
+}
+
+.composer-footer{
+  margin-top:8px;
+  align-items:center;
+}
+
+.composer-tools{
+  min-height:40px;
+}
+
+.tool-btn{
+  width:40px;
+  height:40px;
+  font-size:18px;
+}
+
+.send-cluster{
+  gap:0;
+}
+
+.send-btn{
+  min-width:132px;
+  height:46px;
+  border-radius:14px;
+}
+
+@media (max-width:640px){
+  .composer-card{
+    padding:10px 12px 8px;
+  }
+
+  .composer-card textarea{
+    min-height:44px;
+    font-size:16px;
+  }
+
+  .composer-footer{
+    flex-direction:row;
+    align-items:center;
+  }
+
+  .send-cluster{
+    align-items:flex-end;
+  }
+
+  .send-btn{
+    width:auto;
+  }
+}
