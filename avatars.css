@@ -1,0 +1,16 @@
+.assistant-avatar.aero-avatar,
+.message-avatar.bot.aero{
+  background:#09172d url('./assets/aero-avatar.svg') center/cover no-repeat !important;
+}
+
+.assistant-avatar.diva-avatar,
+.message-avatar.bot.diva{
+  background:#09172d url('./assets/diva-avatar.svg') center/cover no-repeat !important;
+}
+
+.assistant-avatar.aero-avatar > i,
+.assistant-avatar.diva-avatar > i,
+.message-avatar.bot.aero > i,
+.message-avatar.bot.diva > i{
+  display:none !important;
+}
