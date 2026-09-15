@@ -1,101 +1,324 @@
-const chat=document.getElementById('chat');
-const form=document.getElementById('form');
-const input=document.getElementById('message');
-const contacts=[...document.querySelectorAll('.contact')];
-const headerName=document.getElementById('headerName');
-const headerAvatar=document.getElementById('headerAvatar');
-const headerStatus=document.getElementById('headerStatus');
-const headerRole=document.getElementById('headerRole');
-const search=document.getElementById('contactSearch');
-let activeAgent=localStorage.getItem('chatboxbasic_agent')||'Aero';
-let busy=false;
+const chat = document.getElementById('chat');
+const form = document.getElementById('form');
+const input = document.getElementById('message');
+const sendBtn = document.getElementById('sendBtn');
+const contacts = [...document.querySelectorAll('.assistant-card')];
+const headerName = document.getElementById('headerName');
+const headerAvatar = document.getElementById('headerAvatar');
+const headerStatus = document.getElementById('headerStatus');
+const headerTagline = document.getElementById('headerTagline');
+const search = document.getElementById('contactSearch');
 
-const roles={Aero:'PC & algemene assistent',Diva:'Creatieve assistent'};
-const TEST_API='https://api.github.com/zen';
-const DEVICE_KEY='chatboxbasic_device_id';
-function makeDeviceId(){
-  if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();
-  return 'dev-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,14);
+let activeAgent = localStorage.getItem('chatboxbasic_agent') || 'Aero';
+let busy = false;
+let typingRow = null;
+
+const roles = {
+  Aero: 'PC & algemene assistent',
+  Diva: 'Creatieve assistent',
+};
+
+const taglines = {
+  Aero: 'Helpt je denken, plannen en doen.',
+  Diva: 'Helpt je creëren, verkennen en uitwerken.',
+};
+
+const TEST_API = 'https://api.github.com/zen';
+const DEVICE_KEY = 'chatboxbasic_device_id';
+
+function makeDeviceId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 14);
 }
-function getDeviceId(){let id=localStorage.getItem(DEVICE_KEY);if(!id){id=makeDeviceId();localStorage.setItem(DEVICE_KEY,id)}return id}
-const DEVICE_ID=getDeviceId();
-function apiHeaders(extra={}){return {'X-Device-ID':DEVICE_ID,...extra}}
-function key(agent){return `chatboxbasic_history_${agent.toLowerCase()}`}
-function load(agent){try{return JSON.parse(localStorage.getItem(key(agent))||'[]')}catch{return []}}
-function save(agent,items){localStorage.setItem(key(agent),JSON.stringify(items.slice(-200)))}
-function now(){return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
-function add(role,text,persist=true,time=now()){
-  const row=document.createElement('div');row.className='msg-row '+(role==='me'?'me':'bot');
-  const bubble=document.createElement('div');bubble.className='msg';
-  const body=document.createElement('div');body.textContent=text;bubble.appendChild(body);
-  const meta=document.createElement('span');meta.className='msg-meta';meta.textContent=time;bubble.appendChild(meta);
-  row.appendChild(bubble);chat.appendChild(row);chat.scrollTop=chat.scrollHeight;
-  if(persist){const items=load(activeAgent);items.push({role,text,time});save(activeAgent,items)}
+
+function getDeviceId() {
+  let id = localStorage.getItem(DEVICE_KEY);
+  if (!id) {
+    id = makeDeviceId();
+    localStorage.setItem(DEVICE_KEY, id);
+  }
+  return id;
+}
+
+const DEVICE_ID = getDeviceId();
+function apiHeaders(extra = {}) {
+  return { 'X-Device-ID': DEVICE_ID, ...extra };
+}
+
+function key(agent) {
+  return `chatboxbasic_history_${agent.toLowerCase()}`;
+}
+
+function load(agent) {
+  try {
+    return JSON.parse(localStorage.getItem(key(agent)) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function save(agent, items) {
+  localStorage.setItem(key(agent), JSON.stringify(items.slice(-200)));
+}
+
+function now() {
+  return new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+}
+
+function scrollToBottom(force = true) {
+  requestAnimationFrame(() => {
+    const nearBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 160;
+    if (force || nearBottom) chat.scrollTop = chat.scrollHeight;
+  });
+}
+
+function iconFor(agent) {
+  return agent === 'Diva' ? 'fa-wand-magic-sparkles' : 'fa-robot';
+}
+
+function add(role, text, persist = true, time = now(), agent = activeAgent) {
+  const row = document.createElement('div');
+  row.className = `message-row ${role === 'me' ? 'user' : 'bot'}`;
+
+  const avatar = document.createElement('div');
+  avatar.className = role === 'me'
+    ? 'message-avatar user-icon'
+    : `message-avatar bot ${agent === 'Diva' ? 'diva' : 'aero'}`;
+  avatar.innerHTML = role === 'me'
+    ? '<i class="fa-regular fa-user"></i>'
+    : `<i class="fa-solid ${iconFor(agent)}"></i>`;
+
+  const body = document.createElement('div');
+  body.className = 'message-body';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'message-bubble';
+  bubble.textContent = text;
+
+  const meta = document.createElement('div');
+  meta.className = 'message-meta';
+  meta.textContent = time;
+
+  body.appendChild(bubble);
+  body.appendChild(meta);
+  row.appendChild(avatar);
+  row.appendChild(body);
+  chat.appendChild(row);
+  scrollToBottom();
+
+  if (persist) {
+    const items = load(agent);
+    items.push({ role, text, time });
+    save(agent, items);
+  }
+
   return row;
 }
-function render(){
-  chat.innerHTML='';const items=load(activeAgent);
-  if(!items.length){const empty=document.createElement('div');empty.className='empty';empty.textContent=`Begin een gesprek met ${activeAgent}.`;chat.appendChild(empty);return}
-  for(const m of items)add(m.role,m.text,false,m.time||'');
-}
-function selectAgent(agent){
-  activeAgent=agent;localStorage.setItem('chatboxbasic_agent',agent);
-  contacts.forEach(c=>c.classList.toggle('active',c.dataset.agent===agent));
-  headerName.textContent=agent;headerRole.textContent=roles[agent]||'';headerAvatar.textContent=agent[0];
-  headerAvatar.className='avatar '+(agent==='Diva'?'diva-avatar':'aero-avatar');
-  input.placeholder=`Typ een bericht aan ${agent}...`;render();updateHeaderStatus();input.focus();
-}
-function setStatus(agent,online){
-  const dot=document.getElementById(`dot-${agent}`);const label=document.getElementById(`status-${agent}`);
-  if(dot){dot.classList.toggle('online',online);dot.classList.toggle('offline',!online)}
-  if(label)label.textContent=online?'online':'offline';
-  if(agent===activeAgent)updateHeaderStatus();
-}
-function updateHeaderStatus(){
-  const label=document.getElementById(`status-${activeAgent}`);headerStatus.textContent=label?label.textContent:'onbekend';
-  headerStatus.style.color=headerStatus.textContent==='online'?'#059669':'#9ca3af';
-}
-async function publicApiReply(){
-  const r=await fetch(TEST_API,{cache:'no-store',headers:{'Accept':'text/plain'}});
-  if(!r.ok)throw new Error(`Test-API ${r.status}`);
-  const text=(await r.text()).trim();
-  return `Test-API werkt. ${text||'Antwoord ontvangen.'}`;
-}
-async function checkStatus(){
-  try{
-    const r=await fetch('./api/status',{cache:'no-store',headers:apiHeaders()});
-    if(!r.ok)throw new Error('lokale backend niet bereikbaar');
-    const j=await r.json();
-    if(j.deviceSecurity&&j.deviceAllowed===false){setStatus('Aero',false);setStatus('Diva',false);return}
-    setStatus('Aero',!!j.Aero);setStatus('Diva',!!j.Diva);return;
-  }catch{}
-  try{const r=await fetch(TEST_API,{cache:'no-store'});setStatus('Aero',r.ok);setStatus('Diva',false)}
-  catch{setStatus('Aero',false);setStatus('Diva',false)}
-}
-contacts.forEach(c=>c.addEventListener('click',()=>selectAgent(c.dataset.agent)));
-if(search){search.addEventListener('input',()=>{const q=search.value.trim().toLowerCase();contacts.forEach(c=>{c.style.display=(c.dataset.agent.toLowerCase().includes(q)||(roles[c.dataset.agent]||'').toLowerCase().includes(q))?'flex':'none'})})}
-form.addEventListener('submit',async e=>{
-  e.preventDefault();if(busy)return;const raw=input.value.trim();if(!raw)return;
-  input.value='';add('me',raw);busy=true;form.querySelector('.send-btn').disabled=true;
-  const wait=add('bot','Even nadenken...',false);
-  const outgoing=activeAgent==='Diva'&&!/^diva[: ]/i.test(raw)?`Diva: ${raw}`:raw;
-  try{
-    let reply='';
-    try{
-      const r=await fetch('./api/chat',{method:'POST',headers:apiHeaders({'Content-Type':'application/json'}),body:JSON.stringify({message:outgoing})});
-      if(r.status===403){const j=await r.json().catch(()=>({}));throw new Error(j.error||'Dit apparaat is niet goedgekeurd.')}
-      if(!r.ok)throw new Error(`backend ${r.status}`);
-      const j=await r.json();reply=j.reply||j.error||'';
-      if(!reply)throw new Error('geen antwoord');
-    }catch(err){
-      if(String(err.message||'').toLowerCase().includes('niet goedgekeurd'))throw err;
-      reply=await publicApiReply();
-    }
-    wait.remove();add('bot',reply);
+
+function render() {
+  chat.innerHTML = '';
+  const items = load(activeAgent);
+
+  if (!items.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.innerHTML = `<div><h3>Start een gesprek met ${activeAgent}</h3><p>Druk op Enter om te verzenden. Shift + Enter maakt een nieuwe regel.</p></div>`;
+    chat.appendChild(empty);
+    scrollToBottom();
+    return;
   }
-  catch(err){wait.remove();add('bot','Fout: '+err.message)}
-  finally{busy=false;form.querySelector('.send-btn').disabled=false;checkStatus();input.focus()}
+
+  for (const message of items) {
+    add(message.role, message.text, false, message.time || '', activeAgent);
+  }
+  scrollToBottom();
+}
+
+function selectAgent(agent) {
+  activeAgent = agent;
+  localStorage.setItem('chatboxbasic_agent', agent);
+
+  contacts.forEach((contact) => {
+    contact.classList.toggle('active', contact.dataset.agent === agent);
+  });
+
+  headerName.textContent = agent;
+  headerTagline.textContent = taglines[agent] || roles[agent] || '';
+  headerAvatar.className = `assistant-avatar large ${agent === 'Diva' ? 'diva-avatar' : 'aero-avatar'}`;
+  headerAvatar.innerHTML = `<i class="fa-solid ${iconFor(agent)}"></i>`;
+  input.placeholder = `Typ je bericht aan ${agent}...`;
+
+  render();
+  updateHeaderStatus();
+  input.focus();
+}
+
+function setStatus(agent, online) {
+  const dot = document.getElementById(`dot-${agent}`);
+  const label = document.getElementById(`status-${agent}`);
+
+  if (dot) {
+    dot.classList.toggle('online', online);
+    dot.classList.toggle('offline', !online);
+  }
+  if (label) label.textContent = online ? 'Online' : 'Offline';
+  if (agent === activeAgent) updateHeaderStatus();
+}
+
+function updateHeaderStatus() {
+  const label = document.getElementById(`status-${activeAgent}`);
+  headerStatus.textContent = label ? label.textContent : 'Onbekend';
+}
+
+async function publicApiReply() {
+  const response = await fetch(TEST_API, {
+    cache: 'no-store',
+    headers: { Accept: 'text/plain' },
+  });
+  if (!response.ok) throw new Error(`Test-API ${response.status}`);
+  const text = (await response.text()).trim();
+  return `Test-API werkt. ${text || 'Antwoord ontvangen.'}`;
+}
+
+async function checkStatus() {
+  try {
+    const response = await fetch('./api/status', {
+      cache: 'no-store',
+      headers: apiHeaders(),
+    });
+    if (!response.ok) throw new Error('lokale backend niet bereikbaar');
+
+    const data = await response.json();
+    if (data.deviceSecurity && data.deviceAllowed === false) {
+      setStatus('Aero', false);
+      setStatus('Diva', false);
+      return;
+    }
+
+    setStatus('Aero', !!data.Aero);
+    setStatus('Diva', !!data.Diva);
+    return;
+  } catch {}
+
+  try {
+    const response = await fetch(TEST_API, { cache: 'no-store' });
+    setStatus('Aero', response.ok);
+    setStatus('Diva', false);
+  } catch {
+    setStatus('Aero', false);
+    setStatus('Diva', false);
+  }
+}
+
+function showTyping() {
+  removeTyping();
+  const row = document.createElement('div');
+  row.className = 'message-row bot typing-row';
+  row.innerHTML = `
+    <div class="message-avatar bot ${activeAgent === 'Diva' ? 'diva' : 'aero'}">
+      <i class="fa-solid ${iconFor(activeAgent)}"></i>
+    </div>
+    <div class="message-body">
+      <div class="message-bubble">
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+      </div>
+    </div>`;
+  typingRow = row;
+  chat.appendChild(row);
+  scrollToBottom();
+}
+
+function removeTyping() {
+  if (typingRow && typingRow.parentNode) typingRow.remove();
+  typingRow = null;
+}
+
+contacts.forEach((contact) => {
+  contact.addEventListener('click', () => selectAgent(contact.dataset.agent));
 });
-input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();form.requestSubmit()}});
-input.addEventListener('input',()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,140)+'px'});
-selectAgent(activeAgent);checkStatus();setInterval(checkStatus,15000);
+
+if (search) {
+  search.addEventListener('input', () => {
+    const query = search.value.trim().toLowerCase();
+    contacts.forEach((contact) => {
+      const agent = contact.dataset.agent || '';
+      const text = `${agent} ${roles[agent] || ''}`.toLowerCase();
+      contact.hidden = query ? !text.includes(query) : false;
+    });
+  });
+}
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (busy) return;
+
+  const raw = input.value.trim();
+  if (!raw) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  add('me', raw);
+
+  busy = true;
+  sendBtn.disabled = true;
+  showTyping();
+
+  const outgoing = activeAgent === 'Diva' && !/^diva[: ]/i.test(raw)
+    ? `Diva: ${raw}`
+    : raw;
+
+  try {
+    let reply = '';
+
+    try {
+      const response = await fetch('./api/chat', {
+        method: 'POST',
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ message: outgoing }),
+      });
+
+      if (response.status === 403) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Dit apparaat is niet goedgekeurd.');
+      }
+      if (!response.ok) throw new Error(`backend ${response.status}`);
+
+      const data = await response.json();
+      reply = data.reply || data.error || '';
+      if (!reply) throw new Error('geen antwoord');
+    } catch (error) {
+      if (String(error.message || '').toLowerCase().includes('niet goedgekeurd')) throw error;
+      reply = await publicApiReply();
+    }
+
+    removeTyping();
+    add('bot', reply);
+  } catch (error) {
+    removeTyping();
+    add('bot', 'Fout: ' + error.message);
+  } finally {
+    busy = false;
+    sendBtn.disabled = false;
+    checkStatus();
+    input.focus();
+    scrollToBottom();
+  }
+});
+
+input.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    form.requestSubmit();
+  }
+});
+
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 180) + 'px';
+});
+
+selectAgent(activeAgent);
+checkStatus();
+setInterval(checkStatus, 15000);
