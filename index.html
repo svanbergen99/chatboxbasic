@@ -3,85 +3,135 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AI Chat Hub</title>
+  <title>Project AI</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-  <div class="page">
-    <header class="topbar">
-      <div class="brand-wrap">
-        <div class="brand-icon"><i class="fa-solid fa-comments"></i></div>
-        <div>
-          <h1>AI Chat Hub</h1>
-          <p>Multi-Agent Workspace</p>
+  <div class="app-shell">
+    <aside class="sidebar-panel">
+      <div class="brand-card">
+        <div class="brand-icon"><i class="fa-regular fa-message"></i></div>
+        <div class="brand-copy">
+          <h1>Project AI</h1>
+          <p>Two minds. More possibilities.</p>
         </div>
       </div>
-      <div class="top-actions">
-        <button class="icon-btn" type="button" aria-label="Instellingen"><i class="fa-solid fa-gear"></i></button>
-        <span class="divider"></span>
-        <div class="user-badge">B</div>
-        <span class="user-name">Bas</span>
+
+      <label class="search-shell" aria-label="Zoek een assistent">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input id="contactSearch" type="search" placeholder="Zoek een assistent..." autocomplete="off">
+      </label>
+
+      <div class="assistant-list" id="contactList">
+        <button
+          class="assistant-card active"
+          type="button"
+          data-agent="Aero"
+          data-role="PC & algemene assistent"
+          data-tagline="Helpt je denken, plannen en doen."
+          data-subcopy="Helder denken, verder komen."
+          data-placeholder="Typ je bericht aan Aero..."
+        >
+          <span class="assistant-avatar aero-avatar"><i class="fa-solid fa-robot"></i></span>
+          <span class="assistant-copy">
+            <span class="assistant-top">
+              <strong>Aero</strong>
+              <span class="assistant-meta"><span class="status-dot" id="dot-Aero"></span><span id="status-Aero">controleren...</span></span>
+            </span>
+            <span class="assistant-subcopy">Helder denken,<br>verder komen.</span>
+          </span>
+        </button>
+
+        <button
+          class="assistant-card"
+          type="button"
+          data-agent="Diva"
+          data-role="Creatieve assistent"
+          data-tagline="Helpt je creëren, verkennen en uitwerken."
+          data-subcopy="Creatieve ideeën, echte impact."
+          data-placeholder="Typ je bericht aan Diva..."
+        >
+          <span class="assistant-avatar diva-avatar"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+          <span class="assistant-copy">
+            <span class="assistant-top">
+              <strong>Diva</strong>
+              <span class="assistant-meta"><span class="status-dot" id="dot-Diva"></span><span id="status-Diva">controleren...</span></span>
+            </span>
+            <span class="assistant-subcopy">Creatieve ideeën,<br>echte impact.</span>
+          </span>
+        </button>
       </div>
-    </header>
 
-    <div class="workspace">
-      <aside class="sidebar">
-        <div class="search-wrap">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <input id="contactSearch" type="search" placeholder="Zoek assistent..." autocomplete="off">
+      <div class="sidebar-spacer"></div>
+
+      <div class="promo-card">
+        <div class="promo-art"></div>
+        <div class="promo-copy">
+          <h2>Een slimmere dag begint hier.</h2>
+          <span class="promo-line"></span>
+          <p>Chat. Ontdek. Creëer. Samen.</p>
+        </div>
+      </div>
+    </aside>
+
+    <main class="chat-panel">
+      <div class="window-topbar">
+        <p>Good ideas<br>brighter together.</p>
+        <div class="window-controls" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+
+      <header class="chat-header">
+        <div class="chat-person">
+          <span class="assistant-avatar aero-avatar large" id="headerAvatar"><i class="fa-solid fa-robot"></i></span>
+          <div class="chat-person-copy">
+            <strong id="headerName">Aero</strong>
+            <span class="online-label"><span class="status-dot online"></span><span id="headerStatus">Online</span></span>
+          </div>
         </div>
 
-        <div class="contact-list" id="contactList">
-          <button class="contact active" data-agent="Aero" type="button">
-            <span class="avatar aero-avatar">A</span>
-            <span class="contact-copy">
-              <span class="contact-top"><strong>Aero</strong><small>AI</small></span>
-              <span class="contact-role">PC & algemene assistent</span>
-              <span class="contact-status"><span class="dot" id="dot-Aero"></span><span id="status-Aero">controleren...</span></span>
-            </span>
-          </button>
-
-          <button class="contact" data-agent="Diva" type="button">
-            <span class="avatar diva-avatar">D</span>
-            <span class="contact-copy">
-              <span class="contact-top"><strong>Diva</strong><small>AI</small></span>
-              <span class="contact-role">Creatieve assistent</span>
-              <span class="contact-status"><span class="dot" id="dot-Diva"></span><span id="status-Diva">controleren...</span></span>
-            </span>
-          </button>
+        <div class="chat-header-actions">
+          <span class="chat-tagline" id="headerTagline">Helpt je denken, plannen en doen.</span>
+          <div class="tag-pills">
+            <span>Analyseren</span>
+            <span>Plannen</span>
+            <span>Uitleggen</span>
+          </div>
+          <button class="ghost-btn" type="button" aria-label="Meer opties"><i class="fa-solid fa-ellipsis"></i></button>
         </div>
-      </aside>
+      </header>
 
-      <main class="chat-panel">
-        <header class="chat-header">
-          <div class="header-person">
-            <span class="avatar aero-avatar" id="headerAvatar">A</span>
-            <div>
-              <strong id="headerName">Aero</strong>
-              <span id="headerRole">PC & algemene assistent</span>
-              <small id="headerStatus">status controleren...</small>
+      <section class="chat-stream" id="chat" aria-live="polite"></section>
+
+      <footer class="composer-area">
+        <form id="form" class="composer-card">
+          <textarea id="message" rows="1" placeholder="Typ je bericht aan Aero..." autofocus></textarea>
+
+          <div class="composer-footer">
+            <div class="composer-tools" aria-hidden="true">
+              <button class="tool-btn" type="button" tabindex="-1"><i class="fa-solid fa-paperclip"></i></button>
+              <button class="tool-btn" type="button" tabindex="-1"><i class="fa-regular fa-face-smile"></i></button>
+              <button class="tool-btn" type="button" tabindex="-1"><i class="fa-solid fa-globe"></i></button>
+            </div>
+
+            <div class="send-cluster">
+              <button id="sendBtn" class="send-btn" type="submit">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>Versturen</span>
+              </button>
+              <small>Enter om te verzenden</small>
             </div>
           </div>
-          <div class="header-actions">
-            <button class="icon-btn" type="button" aria-label="Meer opties"><i class="fa-solid fa-ellipsis-vertical"></i></button>
-          </div>
-        </header>
-
-        <section id="chat" class="chat"></section>
-
-        <footer class="composer-wrap">
-          <form id="form" class="composer">
-            <button class="attach-btn" type="button" aria-label="Bijlage"><i class="fa-solid fa-paperclip"></i></button>
-            <textarea id="message" placeholder="Typ een bericht aan Aero..." rows="1" autofocus></textarea>
-            <button class="send-btn" type="submit" aria-label="Sturen"><i class="fa-solid fa-paper-plane"></i></button>
-          </form>
-        </footer>
-      </main>
-    </div>
+        </form>
+      </footer>
+    </main>
   </div>
 
   <script src="./app.js"></script>
