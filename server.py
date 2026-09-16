@@ -27,6 +27,7 @@ SESSION_COOKIE = "kcd_session"
 HANDOFF_SECRET = os.environ.get("KCD_HANDOFF_SECRET", "").strip()
 HANDOFF_TTL = int(os.environ.get("KCD_HANDOFF_TTL", "60"))
 PUBLIC_ORIGIN = os.environ.get("KCD_PUBLIC_ORIGIN", "").strip().rstrip("/")
+MAX_INITIAL_MESSAGE = 4000
 
 ROLE_CHATS = {
     "beheer": {"1", "2"},
@@ -93,7 +94,7 @@ def agent_online(chat_url: str) -> bool:
         return False
 
 
-def new_session(role: str) -> tuple[str, dict]:
+def new_session(role: str, pending_message: str = "") -> tuple[str, dict]:
     now = int(time.time())
     token = secrets.token_urlsafe(32)
     session = {
@@ -101,6 +102,7 @@ def new_session(role: str) -> tuple[str, dict]:
         "allowedChats": sorted(ROLE_CHATS[role]),
         "createdAt": now,
         "expiresAt": now + SESSION_TTL,
+        "pendingMessage": pending_message[:MAX_INITIAL_MESSAGE],
     }
     with SESSIONS_LOCK:
         SESSIONS[token] = session
@@ -128,17 +130,30 @@ def delete_session(token: str):
         SESSIONS.pop(token, None)
 
 
+def consume_pending_message(token: str) -> str:
+    if not token:
+        return ""
+    with SESSIONS_LOCK:
+        session = SESSIONS.get(token)
+        if not session:
+            return ""
+        message = str(session.get("pendingMessage") or "")
+        session["pendingMessage"] = ""
+        return message
+
+
 def handoff_key(code: str) -> str:
     return hashlib.sha256(code.encode("utf-8")).hexdigest()
 
 
-def new_handoff(role: str) -> tuple[str, dict]:
+def new_handoff(role: str, initial_message: str = "") -> tuple[str, dict]:
     now = int(time.time())
     code = secrets.token_urlsafe(32)
     record = {
         "role": role,
         "createdAt": now,
         "expiresAt": now + HANDOFF_TTL,
+        "initialMessage": initial_message[:MAX_INITIAL_MESSAGE],
     }
     with HANDOFF_LOCK:
         HANDOFF_CODES[handoff_key(code)] = record
@@ -255,7 +270,13 @@ class Handler(BaseHTTPRequestHandler):
             session = self.current_session()
             if not session:
                 return self.send_json({"authenticated": False}, 401)
-            return self.send_json({"authenticated": True, **session})
+            return self.send_json({
+                "authenticated": True,
+                "role": session["role"],
+                "allowedChats": session["allowedChats"],
+                "createdAt": session["createdAt"],
+                "expiresAt": session["expiresAt"],
+            })
 
         if request_path == "/api/device":
             return self.send_json({
@@ -294,7 +315,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send_error(401, "Ongeldige of verlopen toegangscode")
                 old_token = self.cookie_value(SESSION_COOKIE)
                 delete_session(old_token)
-                token, _ = new_session(route["role"])
+                token, _ = new_session(route["role"], handoff.get("initialMessage") or "")
                 return self.redirect(
                     request_path,
                     status=303,
@@ -339,7 +360,8 @@ class Handler(BaseHTTPRequestHandler):
                 role = str(data.get("assistant") or data.get("role") or "").strip().lower()
                 if role not in COLLEAGUE_ROLES:
                     return self.send_json({"error": "Kies Casey of Dee."}, 400)
-                code, record = new_handoff(role)
+                initial_message = str(data.get("message") or "").strip()[:MAX_INITIAL_MESSAGE]
+                code, record = new_handoff(role, initial_message)
                 relative_url = f"{ROLE_HOME[role]}?code={quote(code)}"
                 redirect_url = f"{PUBLIC_ORIGIN}{relative_url}" if PUBLIC_ORIGIN else relative_url
                 return self.send_json({
@@ -374,6 +396,13 @@ class Handler(BaseHTTPRequestHandler):
                 )
             except Exception as exc:
                 return self.send_json({"error": str(exc)}, 400)
+
+        if request_path == "/api/session/pending-message":
+            session = self.require_session()
+            if not session:
+                return
+            token = self.cookie_value(SESSION_COOKIE)
+            return self.send_json({"message": consume_pending_message(token)})
 
         if request_path == "/api/session/logout":
             token = self.cookie_value(SESSION_COOKIE)
