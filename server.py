@@ -15,8 +15,18 @@ DIVA_URL = os.environ.get("DIVA_URL", "http://127.0.0.1:8090/api/chat")
 # KCD CHAT ROUTES
 # The browser chooses a chatbox route. The server decides which backend that route may use.
 CHATBOXES = {
-    "/api/chat/1": {"id": "1", "name": "Aero", "url": AI_CORE_URL},
-    "/api/chat/2": {"id": "2", "name": "Diva", "url": DIVA_URL},
+    "/api/chat/1": {
+        "id": "1",
+        "name": "Operator",
+        "backend": "Aero",
+        "url": AI_CORE_URL,
+    },
+    "/api/chat/2": {
+        "id": "2",
+        "name": "Beveiliging & Creator",
+        "backend": "Diva",
+        "url": DIVA_URL,
+    },
 }
 
 # DEVICE SECURITY
@@ -28,7 +38,12 @@ ALLOWED_DEVICE_IDS = {
 
 def call_agent(url: str, message: str) -> dict:
     payload = json.dumps({"message": message}).encode("utf-8")
-    request = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+    request = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
     with urllib.request.urlopen(request, timeout=600) as response:
         return json.loads(response.read().decode("utf-8"))
 
@@ -63,35 +78,43 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/api/health":
             return self.send_json({"ok": True})
+
         if self.path == "/api/device":
             return self.send_json({
                 "deviceId": self.device_id(),
                 "securityEnabled": bool(ALLOWED_DEVICE_IDS),
                 "allowed": self.device_allowed(),
             })
+
         if self.path == "/api/status":
             return self.send_json({
-                "Aero": agent_online(AI_CORE_URL),
-                "Diva": agent_online(DIVA_URL),
                 "chatboxes": {
-                    "1": {"agent": "Aero", "online": agent_online(AI_CORE_URL)},
-                    "2": {"agent": "Diva", "online": agent_online(DIVA_URL)},
+                    chatbox["id"]: {
+                        "name": chatbox["name"],
+                        "backend": chatbox["backend"],
+                        "online": agent_online(chatbox["url"]),
+                    }
+                    for chatbox in CHATBOXES.values()
                 },
                 "deviceSecurity": bool(ALLOWED_DEVICE_IDS),
                 "deviceAllowed": self.device_allowed(),
             })
+
         if self.path == "/":
             path = ROOT / "index.html"
         else:
             path = ROOT / self.path.lstrip("/")
+
         if not path.is_file() or ROOT not in path.resolve().parents and path.resolve() != ROOT:
             return self.send_error(404)
+
         data = path.read_bytes()
         content_type = "text/html; charset=utf-8"
         if path.suffix == ".js":
             content_type = "application/javascript; charset=utf-8"
         elif path.suffix == ".css":
             content_type = "text/css; charset=utf-8"
+
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
@@ -102,8 +125,10 @@ class Handler(BaseHTTPRequestHandler):
         chatbox = CHATBOXES.get(self.path)
         if not chatbox:
             return self.send_error(404)
+
         if not self.device_allowed():
             return self.send_json({"error": "Dit apparaat is niet goedgekeurd."}, 403)
+
         try:
             length = int(self.headers.get("Content-Length", "0"))
             data = json.loads(self.rfile.read(length) or b"{}")
@@ -116,15 +141,16 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({
                 "reply": reply,
                 "chatId": chatbox["id"],
-                "agent": chatbox["name"],
+                "name": chatbox["name"],
+                "backend": chatbox["backend"],
             })
         except Exception as exc:
             return self.send_json({"error": str(exc)}, 500)
 
 
 if __name__ == "__main__":
-    print(f"ChatBox Basic: http://{HOST}:{PORT}")
-    print("KCD routes: /api/chat/1 -> Aero, /api/chat/2 -> Diva")
+    print(f"KCD Chatbox: http://{HOST}:{PORT}")
+    print("KCD routes: /api/chat/1 -> Operator, /api/chat/2 -> Beveiliging & Creator")
     if ALLOWED_DEVICE_IDS:
         print(f"Device security: ON ({len(ALLOWED_DEVICE_IDS)} approved)")
     else:
