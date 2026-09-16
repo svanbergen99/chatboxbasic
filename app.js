@@ -131,7 +131,6 @@ function add(role, text, persist = true, time = now(), chatId = activeChat) {
 
   const row = document.createElement('div');
   row.className = `message-row ${role === 'me' ? 'user' : 'bot'}`;
-
   const avatar = document.createElement('div');
   avatar.className = role === 'me'
     ? 'message-avatar user-icon'
@@ -345,7 +344,32 @@ input.addEventListener('input', () => {
   input.style.height = Math.min(input.scrollHeight, 180) + 'px';
 });
 
+async function sendPendingHandoffMessage() {
+  await checkStatus();
+  if (!sessionReady || !serverAllowedChatIds.includes(activeChat)) return;
+
+  try {
+    const response = await fetch('/api/session/pending-message', {
+      method: 'POST',
+      headers: apiHeaders({ 'Content-Type': 'application/json' }),
+      body: '{}',
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      lockForSession('Sessie verlopen. Open de chat opnieuw vanaf de startpagina.');
+      return;
+    }
+    if (!response.ok) return;
+
+    const pending = String(data.message || '').trim();
+    if (!pending) return;
+    input.value = pending;
+    input.dispatchEvent(new Event('input'));
+    form.requestSubmit();
+  } catch {}
+}
+
 selectChat(activeChat);
 setComposerEnabled(false, 'Sessie controleren...');
-checkStatus();
+sendPendingHandoffMessage();
 setInterval(checkStatus, 15000);
