@@ -1,5 +1,6 @@
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
+from urllib.parse import urlsplit
 import json
 import os
 import urllib.request
@@ -8,43 +9,27 @@ ROOT = Path(__file__).resolve().parent
 HOST = os.environ.get("CHATBOX_HOST", "127.0.0.1")
 PORT = int(os.environ.get("CHATBOX_PORT", "8080"))
 
-# AI CORE ADAPTERS
 AI_CORE_URL = os.environ.get("AI_CORE_URL", os.environ.get("AERO_URL", "http://127.0.0.1:8091/api/chat"))
 DIVA_URL = os.environ.get("DIVA_URL", "http://127.0.0.1:8090/api/chat")
 CASEY_URL = os.environ.get("CASEY_URL", "").strip()
 DEE_URL = os.environ.get("DEE_URL", "").strip()
 
-# KCD CHAT ROUTES
-# The browser chooses a chatbox route. The server decides which backend that route may use.
-CHATBOXES = {
-    "/api/chat/1": {
-        "id": "1",
-        "name": "Operator",
-        "backend": "Aero",
-        "url": AI_CORE_URL,
-    },
-    "/api/chat/2": {
-        "id": "2",
-        "name": "Beveiliging & Creator",
-        "backend": "Diva",
-        "url": DIVA_URL,
-    },
-    "/api/chat/3": {
-        "id": "3",
-        "name": "Casey",
-        "backend": "Casey",
-        "url": CASEY_URL,
-    },
-    "/api/chat/4": {
-        "id": "4",
-        "name": "Dee",
-        "backend": "Dee",
-        "url": DEE_URL,
-    },
+PAGE_ROUTES = {
+    "/beheer": "beheer.html",
+    "/beheer/": "beheer.html",
+    "/collega/casey": "casey.html",
+    "/collega/casey/": "casey.html",
+    "/collega/dee": "dee.html",
+    "/collega/dee/": "dee.html",
 }
 
-# DEVICE SECURITY
-# Comma-separated device IDs. Empty = not enforced yet.
+CHATBOXES = {
+    "/api/chat/1": {"id": "1", "name": "Aero", "backend": "Aero", "url": AI_CORE_URL},
+    "/api/chat/2": {"id": "2", "name": "Diva", "backend": "Diva", "url": DIVA_URL},
+    "/api/chat/3": {"id": "3", "name": "Casey", "backend": "Casey", "url": CASEY_URL},
+    "/api/chat/4": {"id": "4", "name": "Dee", "backend": "Dee", "url": DEE_URL},
+}
+
 ALLOWED_DEVICE_IDS = {
     item.strip() for item in os.environ.get("CHATBOX_ALLOWED_DEVICES", "").split(",") if item.strip()
 }
@@ -87,6 +72,12 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def redirect(self, location, status=302):
+        self.send_response(status)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def device_id(self):
         return (self.headers.get("X-Device-ID") or "").strip()
 
@@ -94,17 +85,22 @@ class Handler(BaseHTTPRequestHandler):
         return not ALLOWED_DEVICE_IDS or self.device_id() in ALLOWED_DEVICE_IDS
 
     def do_GET(self):
-        if self.path == "/api/health":
+        request_path = urlsplit(self.path).path
+
+        if request_path == "/":
+            return self.redirect("/beheer")
+
+        if request_path == "/api/health":
             return self.send_json({"ok": True})
 
-        if self.path == "/api/device":
+        if request_path == "/api/device":
             return self.send_json({
                 "deviceId": self.device_id(),
                 "securityEnabled": bool(ALLOWED_DEVICE_IDS),
                 "allowed": self.device_allowed(),
             })
 
-        if self.path == "/api/status":
+        if request_path == "/api/status":
             return self.send_json({
                 "chatboxes": {
                     chatbox["id"]: {
@@ -119,12 +115,11 @@ class Handler(BaseHTTPRequestHandler):
                 "deviceAllowed": self.device_allowed(),
             })
 
-        if self.path == "/":
-            path = ROOT / "index.html"
-        else:
-            path = ROOT / self.path.lstrip("/")
+        routed_file = PAGE_ROUTES.get(request_path)
+        path = ROOT / routed_file if routed_file else ROOT / request_path.lstrip("/")
 
-        if not path.is_file() or ROOT not in path.resolve().parents and path.resolve() != ROOT:
+        resolved = path.resolve()
+        if not path.is_file() or (ROOT not in resolved.parents and resolved != ROOT):
             return self.send_error(404)
 
         data = path.read_bytes()
@@ -141,7 +136,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_POST(self):
-        chatbox = CHATBOXES.get(self.path)
+        request_path = urlsplit(self.path).path
+        chatbox = CHATBOXES.get(request_path)
         if not chatbox:
             return self.send_error(404)
 
@@ -149,9 +145,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"error": "Dit apparaat is niet goedgekeurd."}, 403)
 
         if not chatbox["url"]:
-            return self.send_json({
-                "error": f'{chatbox["name"]} is nog niet gekoppeld aan een backend.'
-            }, 503)
+            return self.send_json({"error": f'{chatbox["name"]} is nog niet gekoppeld aan een backend.'}, 503)
 
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -174,7 +168,8 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print(f"KCD Chatbox: http://{HOST}:{PORT}")
-    print("KCD routes: 1 Operator, 2 Beveiliging & Creator, 3 Casey, 4 Dee")
+    print("Pages: /beheer, /collega/casey, /collega/dee")
+    print("Chats: 1 Aero, 2 Diva, 3 Casey, 4 Dee")
     if ALLOWED_DEVICE_IDS:
         print(f"Device security: ON ({len(ALLOWED_DEVICE_IDS)} approved)")
     else:
