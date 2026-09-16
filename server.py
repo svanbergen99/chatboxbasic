@@ -17,7 +17,7 @@ PORT = int(os.environ.get("CHATBOX_PORT", "8080"))
 AI_CORE_URL = os.environ.get("AI_CORE_URL", os.environ.get("AERO_URL", "http://127.0.0.1:8091/api/chat"))
 DIVA_URL = os.environ.get("DIVA_URL", "http://127.0.0.1:8090/api/chat")
 CASEY_URL = os.environ.get("CASEY_URL", "http://127.0.0.1:8092/api/chat").strip()
-DEE_URL = os.environ.get("DEE_URL", "").strip()
+DEE_URL = os.environ.get("DEE_URL", "http://127.0.0.1:8093/api/chat").strip()
 
 DEV_MODE = os.environ.get("KCD_DEV_MODE", "0").strip() == "1"
 COOKIE_SECURE = os.environ.get("KCD_COOKIE_SECURE", "0").strip() == "1"
