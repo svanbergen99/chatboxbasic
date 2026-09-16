@@ -11,6 +11,8 @@ PORT = int(os.environ.get("CHATBOX_PORT", "8080"))
 # AI CORE ADAPTERS
 AI_CORE_URL = os.environ.get("AI_CORE_URL", os.environ.get("AERO_URL", "http://127.0.0.1:8091/api/chat"))
 DIVA_URL = os.environ.get("DIVA_URL", "http://127.0.0.1:8090/api/chat")
+CASEY_URL = os.environ.get("CASEY_URL", "").strip()
+DEE_URL = os.environ.get("DEE_URL", "").strip()
 
 # KCD CHAT ROUTES
 # The browser chooses a chatbox route. The server decides which backend that route may use.
@@ -27,6 +29,18 @@ CHATBOXES = {
         "backend": "Diva",
         "url": DIVA_URL,
     },
+    "/api/chat/3": {
+        "id": "3",
+        "name": "Casey",
+        "backend": "Casey",
+        "url": CASEY_URL,
+    },
+    "/api/chat/4": {
+        "id": "4",
+        "name": "Dee",
+        "backend": "Dee",
+        "url": DEE_URL,
+    },
 }
 
 # DEVICE SECURITY
@@ -37,6 +51,8 @@ ALLOWED_DEVICE_IDS = {
 
 
 def call_agent(url: str, message: str) -> dict:
+    if not url:
+        raise RuntimeError("Backend is nog niet geconfigureerd.")
     payload = json.dumps({"message": message}).encode("utf-8")
     request = urllib.request.Request(
         url,
@@ -49,6 +65,8 @@ def call_agent(url: str, message: str) -> dict:
 
 
 def agent_online(chat_url: str) -> bool:
+    if not chat_url:
+        return False
     health_url = chat_url.rsplit("/api/chat", 1)[0] + "/api/health"
     try:
         with urllib.request.urlopen(health_url, timeout=2) as response:
@@ -92,6 +110,7 @@ class Handler(BaseHTTPRequestHandler):
                     chatbox["id"]: {
                         "name": chatbox["name"],
                         "backend": chatbox["backend"],
+                        "configured": bool(chatbox["url"]),
                         "online": agent_online(chatbox["url"]),
                     }
                     for chatbox in CHATBOXES.values()
@@ -129,6 +148,11 @@ class Handler(BaseHTTPRequestHandler):
         if not self.device_allowed():
             return self.send_json({"error": "Dit apparaat is niet goedgekeurd."}, 403)
 
+        if not chatbox["url"]:
+            return self.send_json({
+                "error": f'{chatbox["name"]} is nog niet gekoppeld aan een backend.'
+            }, 503)
+
         try:
             length = int(self.headers.get("Content-Length", "0"))
             data = json.loads(self.rfile.read(length) or b"{}")
@@ -150,7 +174,7 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print(f"KCD Chatbox: http://{HOST}:{PORT}")
-    print("KCD routes: /api/chat/1 -> Operator, /api/chat/2 -> Beveiliging & Creator")
+    print("KCD routes: 1 Operator, 2 Beveiliging & Creator, 3 Casey, 4 Dee")
     if ALLOWED_DEVICE_IDS:
         print(f"Device security: ON ({len(ALLOWED_DEVICE_IDS)} approved)")
     else:
