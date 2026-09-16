@@ -23,7 +23,11 @@ const taglines = {
   Diva: 'Helpt je creëren, verkennen en uitwerken.',
 };
 
-const TEST_API = 'https://api.github.com/zen';
+const chatRoutes = {
+  Aero: './api/chat/1',
+  Diva: './api/chat/2',
+};
+
 const DEVICE_KEY = 'chatboxbasic_device_id';
 
 function makeDeviceId() {
@@ -170,16 +174,6 @@ function updateHeaderStatus() {
   headerStatus.textContent = label ? label.textContent : 'Onbekend';
 }
 
-async function publicApiReply() {
-  const response = await fetch(TEST_API, {
-    cache: 'no-store',
-    headers: { Accept: 'text/plain' },
-  });
-  if (!response.ok) throw new Error(`Test-API ${response.status}`);
-  const text = (await response.text()).trim();
-  return `Test-API werkt. ${text || 'Antwoord ontvangen.'}`;
-}
-
 async function checkStatus() {
   try {
     const response = await fetch('./api/status', {
@@ -197,13 +191,6 @@ async function checkStatus() {
 
     setStatus('Aero', !!data.Aero);
     setStatus('Diva', !!data.Diva);
-    return;
-  } catch {}
-
-  try {
-    const response = await fetch(TEST_API, { cache: 'no-store' });
-    setStatus('Aero', response.ok);
-    setStatus('Diva', false);
   } catch {
     setStatus('Aero', false);
     setStatus('Diva', false);
@@ -265,33 +252,26 @@ form.addEventListener('submit', async (event) => {
   sendBtn.disabled = true;
   showTyping();
 
-  const outgoing = activeAgent === 'Diva' && !/^diva[: ]/i.test(raw)
-    ? `Diva: ${raw}`
-    : raw;
-
   try {
-    let reply = '';
+    const endpoint = chatRoutes[activeAgent];
+    if (!endpoint) throw new Error('Geen chatroute ingesteld.');
 
-    try {
-      const response = await fetch('./api/chat', {
-        method: 'POST',
-        headers: apiHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ message: outgoing }),
-      });
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: apiHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ message: raw }),
+    });
 
-      if (response.status === 403) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || 'Dit apparaat is niet goedgekeurd.');
-      }
-      if (!response.ok) throw new Error(`backend ${response.status}`);
-
-      const data = await response.json();
-      reply = data.reply || data.error || '';
-      if (!reply) throw new Error('geen antwoord');
-    } catch (error) {
-      if (String(error.message || '').toLowerCase().includes('niet goedgekeurd')) throw error;
-      reply = await publicApiReply();
+    if (response.status === 403) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Dit apparaat is niet goedgekeurd.');
     }
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `backend ${response.status}`);
+
+    const reply = data.reply || data.error || '';
+    if (!reply) throw new Error('Geen antwoord ontvangen.');
 
     removeTyping();
     add('bot', reply);
