@@ -1,7 +1,8 @@
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from http.cookies import SimpleCookie
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
+import hashlib
 import json
 import os
 import secrets
@@ -23,11 +24,17 @@ COOKIE_SECURE = os.environ.get("KCD_COOKIE_SECURE", "0").strip() == "1"
 SESSION_TTL = int(os.environ.get("KCD_SESSION_TTL", str(8 * 60 * 60)))
 SESSION_COOKIE = "kcd_session"
 
+HANDOFF_SECRET = os.environ.get("KCD_HANDOFF_SECRET", "").strip()
+HANDOFF_TTL = int(os.environ.get("KCD_HANDOFF_TTL", "60"))
+PUBLIC_ORIGIN = os.environ.get("KCD_PUBLIC_ORIGIN", "").strip().rstrip("/")
+
 ROLE_CHATS = {
     "beheer": {"1", "2"},
     "casey": {"3"},
     "dee": {"4"},
 }
+
+COLLEAGUE_ROLES = {"casey", "dee"}
 
 PAGE_ROUTES = {
     "/beheer": {"file": "beheer.html", "role": "beheer"},
@@ -57,6 +64,8 @@ ALLOWED_DEVICE_IDS = {
 
 SESSIONS = {}
 SESSIONS_LOCK = threading.Lock()
+HANDOFF_CODES = {}
+HANDOFF_LOCK = threading.Lock()
 
 
 def call_agent(url: str, message: str) -> dict:
@@ -119,6 +128,41 @@ def delete_session(token: str):
         SESSIONS.pop(token, None)
 
 
+def handoff_key(code: str) -> str:
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()
+
+
+def new_handoff(role: str) -> tuple[str, dict]:
+    now = int(time.time())
+    code = secrets.token_urlsafe(32)
+    record = {
+        "role": role,
+        "createdAt": now,
+        "expiresAt": now + HANDOFF_TTL,
+    }
+    with HANDOFF_LOCK:
+        HANDOFF_CODES[handoff_key(code)] = record
+    return code, record
+
+
+def consume_handoff(code: str, expected_role: str):
+    if not code or expected_role not in COLLEAGUE_ROLES:
+        return None
+    key = handoff_key(code)
+    now = int(time.time())
+    with HANDOFF_LOCK:
+        record = HANDOFF_CODES.get(key)
+        if not record:
+            return None
+        if record["expiresAt"] <= now:
+            HANDOFF_CODES.pop(key, None)
+            return None
+        if record["role"] != expected_role:
+            return None
+        HANDOFF_CODES.pop(key, None)
+        return dict(record)
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_):
         pass
@@ -128,6 +172,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
+        self.send_header("Referrer-Policy", "no-referrer")
         if extra_headers:
             for name, value in extra_headers:
                 self.send_header(name, value)
@@ -139,6 +184,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Location", location)
         self.send_header("Cache-Control", "no-store")
+        self.send_header("Referrer-Policy", "no-referrer")
         if extra_headers:
             for name, value in extra_headers:
                 self.send_header(name, value)
@@ -187,8 +233,16 @@ class Handler(BaseHTTPRequestHandler):
             return None
         return session
 
+    def handoff_authorized(self):
+        supplied = (self.headers.get("X-KCD-Handoff-Secret") or "").strip()
+        if not HANDOFF_SECRET or not supplied:
+            return False
+        return secrets.compare_digest(supplied, HANDOFF_SECRET)
+
     def do_GET(self):
-        request_path = urlsplit(self.path).path
+        parsed = urlsplit(self.path)
+        request_path = parsed.path
+        query = parse_qs(parsed.query)
 
         if request_path == "/":
             session = self.current_session()
@@ -233,6 +287,20 @@ class Handler(BaseHTTPRequestHandler):
 
         route = PAGE_ROUTES.get(request_path)
         if route:
+            code = (query.get("code") or [""])[0].strip()
+            if code:
+                handoff = consume_handoff(code, route["role"])
+                if not handoff:
+                    return self.send_error(401, "Ongeldige of verlopen toegangscode")
+                old_token = self.cookie_value(SESSION_COOKIE)
+                delete_session(old_token)
+                token, _ = new_session(route["role"])
+                return self.redirect(
+                    request_path,
+                    status=303,
+                    extra_headers=[("Set-Cookie", self.session_cookie_header(token))],
+                )
+
             session = self.current_session()
             if not session:
                 return self.send_error(401, "Geen geldige sessie")
@@ -255,12 +323,34 @@ class Handler(BaseHTTPRequestHandler):
 
         self.send_response(200)
         self.send_header("Content-Type", content_type)
+        self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
 
     def do_POST(self):
         request_path = urlsplit(self.path).path
+
+        if request_path == "/api/handoff/issue":
+            if not self.handoff_authorized():
+                return self.send_json({"error": "Niet bevoegd om toegangscodes uit te geven."}, 403)
+            try:
+                data = self.read_json()
+                role = str(data.get("assistant") or data.get("role") or "").strip().lower()
+                if role not in COLLEAGUE_ROLES:
+                    return self.send_json({"error": "Kies Casey of Dee."}, 400)
+                code, record = new_handoff(role)
+                relative_url = f"{ROLE_HOME[role]}?code={quote(code)}"
+                redirect_url = f"{PUBLIC_ORIGIN}{relative_url}" if PUBLIC_ORIGIN else relative_url
+                return self.send_json({
+                    "ok": True,
+                    "assistant": role,
+                    "redirect": redirect_url,
+                    "expiresAt": record["expiresAt"],
+                    "expiresIn": HANDOFF_TTL,
+                })
+            except Exception as exc:
+                return self.send_json({"error": str(exc)}, 400)
 
         if request_path == "/api/dev/session":
             if not DEV_MODE:
@@ -333,6 +423,7 @@ if __name__ == "__main__":
     print("Pages: /beheer, /collega/casey, /collega/dee")
     print("Session rights: beheer=1+2, casey=3, dee=4")
     print(f"Development session endpoint: {'ON' if DEV_MODE else 'OFF'}")
+    print(f"Colleague handoff endpoint: {'ON' if HANDOFF_SECRET else 'OFF'}")
     if ALLOWED_DEVICE_IDS:
         print(f"Device security: ON ({len(ALLOWED_DEVICE_IDS)} approved)")
     else:
