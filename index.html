@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Project AI</title>
+  <title>KCD Chatbox</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -18,47 +18,31 @@
       <div class="brand-card">
         <div class="brand-icon"><i class="fa-regular fa-message"></i></div>
         <div class="brand-copy">
-          <h1>Project AI</h1>
-          <p>Two minds. More possibilities.</p>
+          <h1>KCD Chatbox</h1>
+          <p>Beheeromgeving</p>
         </div>
       </div>
 
       <div class="assistant-list" id="contactList">
-        <button
-          class="assistant-card active"
-          type="button"
-          data-agent="Aero"
-          data-role="PC & algemene assistent"
-          data-tagline="Helpt je denken, plannen en doen."
-          data-subcopy="Helder denken, verder komen."
-          data-placeholder="Typ je bericht aan Aero..."
-        >
+        <button class="assistant-card active" type="button" data-chat-id="1">
           <span class="assistant-avatar aero-avatar"><i class="fa-solid fa-robot"></i></span>
           <span class="assistant-copy">
             <span class="assistant-top">
-              <strong>Aero</strong>
-              <span class="assistant-meta"><span class="status-dot" id="dot-Aero"></span><span id="status-Aero">controleren...</span></span>
+              <strong>Operator</strong>
+              <span class="assistant-meta"><span class="status-dot" id="dot-chat-1"></span><span id="status-chat-1">controleren...</span></span>
             </span>
-            <span class="assistant-subcopy">Helder denken,<br>verder komen.</span>
+            <span class="assistant-subcopy">Chatbox 1<br>Beheer</span>
           </span>
         </button>
 
-        <button
-          class="assistant-card"
-          type="button"
-          data-agent="Diva"
-          data-role="Creatieve assistent"
-          data-tagline="Helpt je creëren, verkennen en uitwerken."
-          data-subcopy="Creatieve ideeën, echte impact."
-          data-placeholder="Typ je bericht aan Diva..."
-        >
-          <span class="assistant-avatar diva-avatar"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+        <button class="assistant-card" type="button" data-chat-id="2">
+          <span class="assistant-avatar diva-avatar"><i class="fa-solid fa-shield-halved"></i></span>
           <span class="assistant-copy">
             <span class="assistant-top">
-              <strong>Diva</strong>
-              <span class="assistant-meta"><span class="status-dot" id="dot-Diva"></span><span id="status-Diva">controleren...</span></span>
+              <strong>Beveiliging &amp; Creator</strong>
+              <span class="assistant-meta"><span class="status-dot" id="dot-chat-2"></span><span id="status-chat-2">controleren...</span></span>
             </span>
-            <span class="assistant-subcopy">Creatieve ideeën,<br>echte impact.</span>
+            <span class="assistant-subcopy">Chatbox 2<br>Beheer</span>
           </span>
         </button>
       </div>
@@ -71,7 +55,7 @@
         <div class="chat-person">
           <span class="assistant-avatar aero-avatar large" id="headerAvatar"><i class="fa-solid fa-robot"></i></span>
           <div class="chat-person-copy">
-            <strong id="headerName">Aero</strong>
+            <strong id="headerName">Operator</strong>
             <span class="online-label"><span class="status-dot online"></span><span id="headerStatus">Online</span></span>
           </div>
         </div>
@@ -93,13 +77,11 @@
 
       <footer class="composer-area">
         <form id="form" class="composer-card">
-          <textarea id="message" rows="1" placeholder="Typ je bericht aan Aero..." autofocus></textarea>
-
+          <textarea id="message" rows="1" placeholder="Typ je bericht aan Operator..." autofocus></textarea>
           <div class="composer-footer">
             <div class="composer-tools" aria-hidden="true">
               <button class="tool-btn" type="button" tabindex="-1"><i class="fa-solid fa-paperclip"></i></button>
             </div>
-
             <div class="send-cluster">
               <button id="sendBtn" class="send-btn" type="submit">
                 <i class="fa-solid fa-paper-plane"></i>
