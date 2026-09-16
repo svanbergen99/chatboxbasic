@@ -1,0 +1,27 @@
+name: Casey handoff test
+
+on:
+  push:
+    branches:
+      - kcd-gateway-v1
+    paths:
+      - server.py
+      - casey.html
+      - tests/test_casey_handoff.py
+      - .github/workflows/casey-handoff-test.yml
+  workflow_dispatch:
+
+jobs:
+  casey-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Casey-only handoff test
+        run: python -m unittest -v tests/test_casey_handoff.py
