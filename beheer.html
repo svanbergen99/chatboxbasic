@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KCD Chatbox — Beheer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/avatars.css">
+  <link rel="stylesheet" href="/clean-layout.css">
+</head>
+<body data-kcd-page="beheer">
+  <div class="app-shell">
+    <aside class="sidebar-panel">
+      <div class="brand-card">
+        <div class="brand-icon"><i class="fa-regular fa-message"></i></div>
+        <div class="brand-copy"><h1>KCD Chatbox</h1><p>Beheer</p></div>
+      </div>
+      <div class="assistant-list" id="contactList">
+        <button class="assistant-card active" type="button" data-chat-id="1">
+          <span class="assistant-avatar aero-avatar"><i class="fa-solid fa-robot"></i></span>
+          <span class="assistant-copy">
+            <span class="assistant-top"><strong>Aero</strong><span class="assistant-meta"><span class="status-dot" id="dot-chat-1"></span><span id="status-chat-1">controleren...</span></span></span>
+            <span class="assistant-subcopy">Chatbox 1<br>Operator</span>
+          </span>
+        </button>
+        <button class="assistant-card" type="button" data-chat-id="2">
+          <span class="assistant-avatar diva-avatar"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+          <span class="assistant-copy">
+            <span class="assistant-top"><strong>Diva</strong><span class="assistant-meta"><span class="status-dot" id="dot-chat-2"></span><span id="status-chat-2">controleren...</span></span></span>
+            <span class="assistant-subcopy">Chatbox 2<br>Beveiliging &amp; Creator</span>
+          </span>
+        </button>
+      </div>
+      <div class="sidebar-spacer"></div>
+    </aside>
+    <main class="chat-panel">
+      <header class="chat-header">
+        <div class="chat-person">
+          <span class="assistant-avatar aero-avatar large" id="headerAvatar"><i class="fa-solid fa-robot"></i></span>
+          <div class="chat-person-copy"><strong id="headerName">Aero</strong><span class="online-label"><span class="status-dot online"></span><span id="headerStatus">Online</span></span></div>
+        </div>
+        <div class="chat-header-actions">
+          <span id="headerTagline" hidden></span>
+          <button class="activation-btn activate-btn" id="activateBtn" type="button"><i class="fa-solid fa-power-off"></i><span>Activeren</span></button>
+          <button class="activation-btn deactivate-btn" id="deactivateBtn" type="button"><i class="fa-solid fa-circle-stop"></i><span>Deactiveren</span></button>
+        </div>
+      </header>
+      <section class="chat-stream" id="chat" aria-live="polite"></section>
+      <footer class="composer-area">
+        <form id="form" class="composer-card">
+          <textarea id="message" rows="1" placeholder="Typ je bericht aan Aero..." autofocus></textarea>
+          <div class="composer-footer"><div class="composer-tools" aria-hidden="true"><button class="tool-btn" type="button" tabindex="-1"><i class="fa-solid fa-paperclip"></i></button></div><div class="send-cluster"><button id="sendBtn" class="send-btn" type="submit"><i class="fa-solid fa-paper-plane"></i><span>Versturen</span></button></div></div>
+        </form>
+      </footer>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
