@@ -9,24 +9,33 @@ const headerStatus = document.getElementById('headerStatus');
 const headerTagline = document.getElementById('headerTagline');
 const search = document.getElementById('contactSearch');
 
-let activeAgent = localStorage.getItem('chatboxbasic_agent') || 'Aero';
+const chats = {
+  '1': {
+    name: 'Operator',
+    role: 'Chatbox 1 · Beheer',
+    tagline: 'Algemene KCD-operator.',
+    placeholder: 'Typ je bericht aan Operator...',
+    endpoint: './api/chat/1',
+    icon: 'fa-robot',
+    avatarClass: 'aero-avatar',
+    messageClass: 'aero',
+  },
+  '2': {
+    name: 'Beveiliging & Creator',
+    role: 'Chatbox 2 · Beheer',
+    tagline: 'Beveiliging en creatieve taken.',
+    placeholder: 'Typ je bericht aan Beveiliging & Creator...',
+    endpoint: './api/chat/2',
+    icon: 'fa-shield-halved',
+    avatarClass: 'diva-avatar',
+    messageClass: 'diva',
+  },
+};
+
+let activeChat = localStorage.getItem('kcd_active_chat') || '1';
+if (!chats[activeChat]) activeChat = '1';
 let busy = false;
 let typingRow = null;
-
-const roles = {
-  Aero: 'PC & algemene assistent',
-  Diva: 'Creatieve assistent',
-};
-
-const taglines = {
-  Aero: 'Helpt je denken, plannen en doen.',
-  Diva: 'Helpt je creëren, verkennen en uitwerken.',
-};
-
-const chatRoutes = {
-  Aero: './api/chat/1',
-  Diva: './api/chat/2',
-};
 
 const DEVICE_KEY = 'chatboxbasic_device_id';
 
@@ -49,20 +58,20 @@ function apiHeaders(extra = {}) {
   return { 'X-Device-ID': DEVICE_ID, ...extra };
 }
 
-function key(agent) {
-  return `chatboxbasic_history_${agent.toLowerCase()}`;
+function key(chatId) {
+  return `kcd_chat_history_${chatId}`;
 }
 
-function load(agent) {
+function load(chatId) {
   try {
-    return JSON.parse(localStorage.getItem(key(agent)) || '[]');
+    return JSON.parse(localStorage.getItem(key(chatId)) || '[]');
   } catch {
     return [];
   }
 }
 
-function save(agent, items) {
-  localStorage.setItem(key(agent), JSON.stringify(items.slice(-200)));
+function save(chatId, items) {
+  localStorage.setItem(key(chatId), JSON.stringify(items.slice(-200)));
 }
 
 function now() {
@@ -76,21 +85,18 @@ function scrollToBottom(force = true) {
   });
 }
 
-function iconFor(agent) {
-  return agent === 'Diva' ? 'fa-wand-magic-sparkles' : 'fa-robot';
-}
-
-function add(role, text, persist = true, time = now(), agent = activeAgent) {
+function add(role, text, persist = true, time = now(), chatId = activeChat) {
+  const config = chats[chatId] || chats['1'];
   const row = document.createElement('div');
   row.className = `message-row ${role === 'me' ? 'user' : 'bot'}`;
 
   const avatar = document.createElement('div');
   avatar.className = role === 'me'
     ? 'message-avatar user-icon'
-    : `message-avatar bot ${agent === 'Diva' ? 'diva' : 'aero'}`;
+    : `message-avatar bot ${config.messageClass}`;
   avatar.innerHTML = role === 'me'
     ? '<i class="fa-regular fa-user"></i>'
-    : `<i class="fa-solid ${iconFor(agent)}"></i>`;
+    : `<i class="fa-solid ${config.icon}"></i>`;
 
   const body = document.createElement('div');
   body.className = 'message-body';
@@ -111,9 +117,9 @@ function add(role, text, persist = true, time = now(), agent = activeAgent) {
   scrollToBottom();
 
   if (persist) {
-    const items = load(agent);
+    const items = load(chatId);
     items.push({ role, text, time });
-    save(agent, items);
+    save(chatId, items);
   }
 
   return row;
@@ -121,56 +127,60 @@ function add(role, text, persist = true, time = now(), agent = activeAgent) {
 
 function render() {
   chat.innerHTML = '';
-  const items = load(activeAgent);
+  const config = chats[activeChat];
+  const items = load(activeChat);
 
   if (!items.length) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
-    empty.innerHTML = `<div><h3>Start een gesprek met ${activeAgent}</h3><p>Druk op Enter om te verzenden. Shift + Enter maakt een nieuwe regel.</p></div>`;
+    empty.innerHTML = `<div><h3>Start een gesprek met ${config.name}</h3><p>${config.role}. Druk op Enter om te verzenden. Shift + Enter maakt een nieuwe regel.</p></div>`;
     chat.appendChild(empty);
     scrollToBottom();
     return;
   }
 
   for (const message of items) {
-    add(message.role, message.text, false, message.time || '', activeAgent);
+    add(message.role, message.text, false, message.time || '', activeChat);
   }
   scrollToBottom();
 }
 
-function selectAgent(agent) {
-  activeAgent = agent;
-  localStorage.setItem('chatboxbasic_agent', agent);
+function selectChat(chatId) {
+  const config = chats[chatId];
+  if (!config) return;
+
+  activeChat = chatId;
+  localStorage.setItem('kcd_active_chat', chatId);
 
   contacts.forEach((contact) => {
-    contact.classList.toggle('active', contact.dataset.agent === agent);
+    contact.classList.toggle('active', contact.dataset.chatId === chatId);
   });
 
-  headerName.textContent = agent;
-  headerTagline.textContent = taglines[agent] || roles[agent] || '';
-  headerAvatar.className = `assistant-avatar large ${agent === 'Diva' ? 'diva-avatar' : 'aero-avatar'}`;
-  headerAvatar.innerHTML = `<i class="fa-solid ${iconFor(agent)}"></i>`;
-  input.placeholder = `Typ je bericht aan ${agent}...`;
+  headerName.textContent = config.name;
+  headerTagline.textContent = config.tagline;
+  headerAvatar.className = `assistant-avatar large ${config.avatarClass}`;
+  headerAvatar.innerHTML = `<i class="fa-solid ${config.icon}"></i>`;
+  input.placeholder = config.placeholder;
 
   render();
   updateHeaderStatus();
   input.focus();
 }
 
-function setStatus(agent, online) {
-  const dot = document.getElementById(`dot-${agent}`);
-  const label = document.getElementById(`status-${agent}`);
+function setStatus(chatId, online) {
+  const dot = document.getElementById(`dot-chat-${chatId}`);
+  const label = document.getElementById(`status-chat-${chatId}`);
 
   if (dot) {
     dot.classList.toggle('online', online);
     dot.classList.toggle('offline', !online);
   }
   if (label) label.textContent = online ? 'Online' : 'Offline';
-  if (agent === activeAgent) updateHeaderStatus();
+  if (chatId === activeChat) updateHeaderStatus();
 }
 
 function updateHeaderStatus() {
-  const label = document.getElementById(`status-${activeAgent}`);
+  const label = document.getElementById(`status-chat-${activeChat}`);
   headerStatus.textContent = label ? label.textContent : 'Onbekend';
 }
 
@@ -184,26 +194,26 @@ async function checkStatus() {
 
     const data = await response.json();
     if (data.deviceSecurity && data.deviceAllowed === false) {
-      setStatus('Aero', false);
-      setStatus('Diva', false);
+      Object.keys(chats).forEach(id => setStatus(id, false));
       return;
     }
 
-    setStatus('Aero', !!data.Aero);
-    setStatus('Diva', !!data.Diva);
+    Object.keys(chats).forEach(id => {
+      setStatus(id, !!data.chatboxes?.[id]?.online);
+    });
   } catch {
-    setStatus('Aero', false);
-    setStatus('Diva', false);
+    Object.keys(chats).forEach(id => setStatus(id, false));
   }
 }
 
 function showTyping() {
   removeTyping();
+  const config = chats[activeChat];
   const row = document.createElement('div');
   row.className = 'message-row bot typing-row';
   row.innerHTML = `
-    <div class="message-avatar bot ${activeAgent === 'Diva' ? 'diva' : 'aero'}">
-      <i class="fa-solid ${iconFor(activeAgent)}"></i>
+    <div class="message-avatar bot ${config.messageClass}">
+      <i class="fa-solid ${config.icon}"></i>
     </div>
     <div class="message-body">
       <div class="message-bubble">
@@ -223,15 +233,15 @@ function removeTyping() {
 }
 
 contacts.forEach((contact) => {
-  contact.addEventListener('click', () => selectAgent(contact.dataset.agent));
+  contact.addEventListener('click', () => selectChat(contact.dataset.chatId));
 });
 
 if (search) {
   search.addEventListener('input', () => {
     const query = search.value.trim().toLowerCase();
     contacts.forEach((contact) => {
-      const agent = contact.dataset.agent || '';
-      const text = `${agent} ${roles[agent] || ''}`.toLowerCase();
+      const config = chats[contact.dataset.chatId];
+      const text = `${config?.name || ''} ${config?.role || ''}`.toLowerCase();
       contact.hidden = query ? !text.includes(query) : false;
     });
   });
@@ -253,10 +263,10 @@ form.addEventListener('submit', async (event) => {
   showTyping();
 
   try {
-    const endpoint = chatRoutes[activeAgent];
-    if (!endpoint) throw new Error('Geen chatroute ingesteld.');
+    const config = chats[activeChat];
+    if (!config?.endpoint) throw new Error('Geen chatroute ingesteld.');
 
-    const response = await fetch(endpoint, {
+    const response = await fetch(config.endpoint, {
       method: 'POST',
       headers: apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ message: raw }),
@@ -299,6 +309,6 @@ input.addEventListener('input', () => {
   input.style.height = Math.min(input.scrollHeight, 180) + 'px';
 });
 
-selectAgent(activeAgent);
+selectChat(activeChat);
 checkStatus();
 setInterval(checkStatus, 15000);
