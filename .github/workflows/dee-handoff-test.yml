@@ -1,0 +1,27 @@
+name: Dee handoff test
+
+on:
+  push:
+    branches:
+      - kcd-gateway-v1
+    paths:
+      - server.py
+      - dee.html
+      - tests/test_dee_handoff.py
+      - .github/workflows/dee-handoff-test.yml
+  workflow_dispatch:
+
+jobs:
+  dee-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Dee-only handoff test
+        run: python -m unittest -v tests/test_dee_handoff.py
