@@ -54,10 +54,13 @@ const chats = {
 
 const allowedChatIds = contacts.map(contact => contact.dataset.chatId).filter(id => chats[id]);
 const pageDefaultChat = allowedChatIds[0] || '1';
-let activeChat = localStorage.getItem(`kcd_active_chat_${document.body.dataset.kcdPage || 'page'}`) || pageDefaultChat;
+const pageKey = document.body.dataset.kcdPage || 'page';
+let activeChat = localStorage.getItem(`kcd_active_chat_${pageKey}`) || pageDefaultChat;
 if (!allowedChatIds.includes(activeChat)) activeChat = pageDefaultChat;
 let busy = false;
 let typingRow = null;
+let serverAllowedChatIds = [];
+let sessionReady = false;
 
 const DEVICE_KEY = 'chatboxbasic_device_id';
 
@@ -105,6 +108,21 @@ function scrollToBottom(force = true) {
     const nearBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 160;
     if (force || nearBottom) chat.scrollTop = chat.scrollHeight;
   });
+}
+
+function setComposerEnabled(enabled, message = '') {
+  input.disabled = !enabled;
+  sendBtn.disabled = !enabled || busy;
+  if (message) input.placeholder = message;
+  else if (enabled) input.placeholder = chats[activeChat]?.placeholder || 'Typ je bericht...';
+}
+
+function lockForSession(message = 'Geen geldige sessie. Open de chat opnieuw vanaf de startpagina.') {
+  sessionReady = false;
+  serverAllowedChatIds = [];
+  setComposerEnabled(false, message);
+  headerStatus.textContent = 'Geen toegang';
+  allowedChatIds.forEach(id => setStatus(id, false, true, 'Geen toegang'));
 }
 
 function add(role, text, persist = true, time = now(), chatId = activeChat) {
@@ -168,28 +186,27 @@ function selectChat(chatId) {
   if (!config) return;
 
   activeChat = chatId;
-  localStorage.setItem(`kcd_active_chat_${document.body.dataset.kcdPage || 'page'}`, chatId);
-
+  localStorage.setItem(`kcd_active_chat_${pageKey}`, chatId);
   contacts.forEach(contact => contact.classList.toggle('active', contact.dataset.chatId === chatId));
   headerName.textContent = config.name;
   headerTagline.textContent = config.tagline;
   headerAvatar.className = `assistant-avatar large ${config.avatarClass}`;
   headerAvatar.innerHTML = `<i class="fa-solid ${config.icon}"></i>`;
-  input.placeholder = config.placeholder;
 
   render();
   updateHeaderStatus();
+  if (sessionReady && serverAllowedChatIds.includes(chatId)) setComposerEnabled(true);
   input.focus();
 }
 
-function setStatus(chatId, online, configured = true) {
+function setStatus(chatId, online, configured = true, override = '') {
   const dot = document.getElementById(`dot-chat-${chatId}`);
   const label = document.getElementById(`status-chat-${chatId}`);
   if (dot) {
-    dot.classList.toggle('online', online);
-    dot.classList.toggle('offline', !online);
+    dot.classList.toggle('online', online && !override);
+    dot.classList.toggle('offline', !online || !!override);
   }
-  if (label) label.textContent = configured ? (online ? 'Online' : 'Offline') : 'Nog niet gekoppeld';
+  if (label) label.textContent = override || (configured ? (online ? 'Online' : 'Offline') : 'Nog niet gekoppeld');
   if (chatId === activeChat) updateHeaderStatus();
 }
 
@@ -201,11 +218,27 @@ function updateHeaderStatus() {
 async function checkStatus() {
   try {
     const response = await fetch('/api/status', { cache: 'no-store', headers: apiHeaders() });
-    if (!response.ok) throw new Error('lokale backend niet bereikbaar');
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
+
+    if (response.status === 401) {
+      lockForSession();
+      return;
+    }
+    if (!response.ok) throw new Error(data.error || 'backend niet bereikbaar');
+
+    serverAllowedChatIds = Array.isArray(data.session?.allowedChats) ? data.session.allowedChats.map(String) : [];
+    const pageIsAllowed = allowedChatIds.every(id => serverAllowedChatIds.includes(id));
+    if (!pageIsAllowed) {
+      lockForSession('Deze sessie heeft geen toegang tot deze pagina.');
+      return;
+    }
+
+    sessionReady = true;
+    setComposerEnabled(serverAllowedChatIds.includes(activeChat));
 
     if (data.deviceSecurity && data.deviceAllowed === false) {
-      allowedChatIds.forEach(id => setStatus(id, false));
+      allowedChatIds.forEach(id => setStatus(id, false, true, 'Apparaat niet goedgekeurd'));
+      setComposerEnabled(false, 'Dit apparaat is niet goedgekeurd.');
       return;
     }
 
@@ -214,7 +247,10 @@ async function checkStatus() {
       setStatus(id, !!state?.online, state?.configured !== false);
     });
   } catch {
+    sessionReady = false;
     allowedChatIds.forEach(id => setStatus(id, false));
+    headerStatus.textContent = 'Verbinding verbroken';
+    setComposerEnabled(false, 'Backend niet bereikbaar.');
   }
 }
 
@@ -253,6 +289,10 @@ form.addEventListener('submit', async event => {
 
   const raw = input.value.trim();
   if (!raw) return;
+  if (!sessionReady || !serverAllowedChatIds.includes(activeChat)) {
+    lockForSession();
+    return;
+  }
 
   input.value = '';
   input.style.height = 'auto';
@@ -262,7 +302,6 @@ form.addEventListener('submit', async event => {
   showTyping();
 
   try {
-    if (!allowedChatIds.includes(activeChat)) throw new Error('Deze chat is niet beschikbaar op deze pagina.');
     const config = chats[activeChat];
     const response = await fetch(config.endpoint, {
       method: 'POST',
@@ -271,7 +310,11 @@ form.addEventListener('submit', async event => {
     });
 
     const data = await response.json().catch(() => ({}));
-    if (response.status === 403) throw new Error(data.error || 'Dit apparaat is niet goedgekeurd.');
+    if (response.status === 401) {
+      lockForSession('Sessie verlopen. Open de chat opnieuw vanaf de startpagina.');
+      throw new Error(data.error || 'Sessie verlopen.');
+    }
+    if (response.status === 403) throw new Error(data.error || 'Geen toegang tot deze chatbox.');
     if (!response.ok) throw new Error(data.error || `backend ${response.status}`);
 
     const reply = data.reply || data.error || '';
@@ -283,7 +326,7 @@ form.addEventListener('submit', async event => {
     add('bot', 'Fout: ' + error.message);
   } finally {
     busy = false;
-    sendBtn.disabled = false;
+    if (sessionReady) setComposerEnabled(serverAllowedChatIds.includes(activeChat));
     checkStatus();
     input.focus();
     scrollToBottom();
@@ -303,5 +346,6 @@ input.addEventListener('input', () => {
 });
 
 selectChat(activeChat);
+setComposerEnabled(false, 'Sessie controleren...');
 checkStatus();
 setInterval(checkStatus, 15000);
