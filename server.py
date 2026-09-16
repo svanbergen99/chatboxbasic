@@ -16,7 +16,7 @@ PORT = int(os.environ.get("CHATBOX_PORT", "8080"))
 
 AI_CORE_URL = os.environ.get("AI_CORE_URL", os.environ.get("AERO_URL", "http://127.0.0.1:8091/api/chat"))
 DIVA_URL = os.environ.get("DIVA_URL", "http://127.0.0.1:8090/api/chat")
-CASEY_URL = os.environ.get("CASEY_URL", "").strip()
+CASEY_URL = os.environ.get("CASEY_URL", "http://127.0.0.1:8092/api/chat").strip()
 DEE_URL = os.environ.get("DEE_URL", "").strip()
 
 DEV_MODE = os.environ.get("KCD_DEV_MODE", "0").strip() == "1"
@@ -86,12 +86,15 @@ def call_agent(url: str, message: str) -> dict:
 def agent_online(chat_url: str) -> bool:
     if not chat_url:
         return False
-    health_url = chat_url.rsplit("/api/chat", 1)[0] + "/api/health"
-    try:
-        with urllib.request.urlopen(health_url, timeout=2) as response:
-            return 200 <= response.status < 300
-    except Exception:
-        return False
+    base_url = chat_url.rsplit("/api/chat", 1)[0]
+    for health_path in ("/api/health", "/health"):
+        try:
+            with urllib.request.urlopen(base_url + health_path, timeout=2) as response:
+                if 200 <= response.status < 300:
+                    return True
+        except Exception:
+            continue
+    return False
 
 
 def new_session(role: str, pending_message: str = "") -> tuple[str, dict]:
