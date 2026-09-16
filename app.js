@@ -11,22 +11,22 @@ const search = document.getElementById('contactSearch');
 
 const chats = {
   '1': {
-    name: 'Operator',
-    role: 'Chatbox 1 · Beheer',
+    name: 'Aero',
+    role: 'Chatbox 1 · Beheer · Operator',
     tagline: 'Algemene KCD-operator.',
-    placeholder: 'Typ je bericht aan Operator...',
-    endpoint: './api/chat/1',
+    placeholder: 'Typ je bericht aan Aero...',
+    endpoint: '/api/chat/1',
     icon: 'fa-robot',
     avatarClass: 'aero-avatar',
     messageClass: 'aero',
   },
   '2': {
-    name: 'Beveiliging & Creator',
-    role: 'Chatbox 2 · Beheer',
+    name: 'Diva',
+    role: 'Chatbox 2 · Beheer · Beveiliging & Creator',
     tagline: 'Beveiliging en creatieve taken.',
-    placeholder: 'Typ je bericht aan Beveiliging & Creator...',
-    endpoint: './api/chat/2',
-    icon: 'fa-shield-halved',
+    placeholder: 'Typ je bericht aan Diva...',
+    endpoint: '/api/chat/2',
+    icon: 'fa-wand-magic-sparkles',
     avatarClass: 'diva-avatar',
     messageClass: 'diva',
   },
@@ -35,7 +35,7 @@ const chats = {
     role: 'Chatbox 3 · Collega',
     tagline: 'Collega-assistent Casey.',
     placeholder: 'Typ je bericht aan Casey...',
-    endpoint: './api/chat/3',
+    endpoint: '/api/chat/3',
     icon: 'fa-user-tie',
     avatarClass: 'aero-avatar',
     messageClass: 'aero',
@@ -45,15 +45,17 @@ const chats = {
     role: 'Chatbox 4 · Collega',
     tagline: 'Collega-assistent Dee.',
     placeholder: 'Typ je bericht aan Dee...',
-    endpoint: './api/chat/4',
+    endpoint: '/api/chat/4',
     icon: 'fa-comments',
     avatarClass: 'diva-avatar',
     messageClass: 'diva',
   },
 };
 
-let activeChat = localStorage.getItem('kcd_active_chat') || '1';
-if (!chats[activeChat]) activeChat = '1';
+const allowedChatIds = contacts.map(contact => contact.dataset.chatId).filter(id => chats[id]);
+const pageDefaultChat = allowedChatIds[0] || '1';
+let activeChat = localStorage.getItem(`kcd_active_chat_${document.body.dataset.kcdPage || 'page'}`) || pageDefaultChat;
+if (!allowedChatIds.includes(activeChat)) activeChat = pageDefaultChat;
 let busy = false;
 let typingRow = null;
 
@@ -106,7 +108,9 @@ function scrollToBottom(force = true) {
 }
 
 function add(role, text, persist = true, time = now(), chatId = activeChat) {
-  const config = chats[chatId] || chats['1'];
+  const config = chats[chatId];
+  if (!config || !allowedChatIds.includes(chatId)) return null;
+
   const row = document.createElement('div');
   row.className = `message-row ${role === 'me' ? 'user' : 'bot'}`;
 
@@ -120,19 +124,15 @@ function add(role, text, persist = true, time = now(), chatId = activeChat) {
 
   const body = document.createElement('div');
   body.className = 'message-body';
-
   const bubble = document.createElement('div');
   bubble.className = 'message-bubble';
   bubble.textContent = text;
-
   const meta = document.createElement('div');
   meta.className = 'message-meta';
   meta.textContent = time;
 
-  body.appendChild(bubble);
-  body.appendChild(meta);
-  row.appendChild(avatar);
-  row.appendChild(body);
+  body.append(bubble, meta);
+  row.append(avatar, body);
   chat.appendChild(row);
   scrollToBottom();
 
@@ -141,7 +141,6 @@ function add(role, text, persist = true, time = now(), chatId = activeChat) {
     items.push({ role, text, time });
     save(chatId, items);
   }
-
   return row;
 }
 
@@ -159,23 +158,19 @@ function render() {
     return;
   }
 
-  for (const message of items) {
-    add(message.role, message.text, false, message.time || '', activeChat);
-  }
+  for (const message of items) add(message.role, message.text, false, message.time || '', activeChat);
   scrollToBottom();
 }
 
 function selectChat(chatId) {
+  if (!allowedChatIds.includes(chatId)) return;
   const config = chats[chatId];
   if (!config) return;
 
   activeChat = chatId;
-  localStorage.setItem('kcd_active_chat', chatId);
+  localStorage.setItem(`kcd_active_chat_${document.body.dataset.kcdPage || 'page'}`, chatId);
 
-  contacts.forEach((contact) => {
-    contact.classList.toggle('active', contact.dataset.chatId === chatId);
-  });
-
+  contacts.forEach(contact => contact.classList.toggle('active', contact.dataset.chatId === chatId));
   headerName.textContent = config.name;
   headerTagline.textContent = config.tagline;
   headerAvatar.className = `assistant-avatar large ${config.avatarClass}`;
@@ -187,15 +182,14 @@ function selectChat(chatId) {
   input.focus();
 }
 
-function setStatus(chatId, online) {
+function setStatus(chatId, online, configured = true) {
   const dot = document.getElementById(`dot-chat-${chatId}`);
   const label = document.getElementById(`status-chat-${chatId}`);
-
   if (dot) {
     dot.classList.toggle('online', online);
     dot.classList.toggle('offline', !online);
   }
-  if (label) label.textContent = online ? 'Online' : 'Offline';
+  if (label) label.textContent = configured ? (online ? 'Online' : 'Offline') : 'Nog niet gekoppeld';
   if (chatId === activeChat) updateHeaderStatus();
 }
 
@@ -206,23 +200,21 @@ function updateHeaderStatus() {
 
 async function checkStatus() {
   try {
-    const response = await fetch('./api/status', {
-      cache: 'no-store',
-      headers: apiHeaders(),
-    });
+    const response = await fetch('/api/status', { cache: 'no-store', headers: apiHeaders() });
     if (!response.ok) throw new Error('lokale backend niet bereikbaar');
-
     const data = await response.json();
+
     if (data.deviceSecurity && data.deviceAllowed === false) {
-      Object.keys(chats).forEach(id => setStatus(id, false));
+      allowedChatIds.forEach(id => setStatus(id, false));
       return;
     }
 
-    Object.keys(chats).forEach(id => {
-      setStatus(id, !!data.chatboxes?.[id]?.online);
+    allowedChatIds.forEach(id => {
+      const state = data.chatboxes?.[id];
+      setStatus(id, !!state?.online, state?.configured !== false);
     });
   } catch {
-    Object.keys(chats).forEach(id => setStatus(id, false));
+    allowedChatIds.forEach(id => setStatus(id, false));
   }
 }
 
@@ -231,35 +223,23 @@ function showTyping() {
   const config = chats[activeChat];
   const row = document.createElement('div');
   row.className = 'message-row bot typing-row';
-  row.innerHTML = `
-    <div class="message-avatar bot ${config.messageClass}">
-      <i class="fa-solid ${config.icon}"></i>
-    </div>
-    <div class="message-body">
-      <div class="message-bubble">
-        <span class="typing-dot"></span>
-        <span class="typing-dot"></span>
-        <span class="typing-dot"></span>
-      </div>
-    </div>`;
+  row.innerHTML = `<div class="message-avatar bot ${config.messageClass}"><i class="fa-solid ${config.icon}"></i></div><div class="message-body"><div class="message-bubble"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div></div>`;
   typingRow = row;
   chat.appendChild(row);
   scrollToBottom();
 }
 
 function removeTyping() {
-  if (typingRow && typingRow.parentNode) typingRow.remove();
+  if (typingRow?.parentNode) typingRow.remove();
   typingRow = null;
 }
 
-contacts.forEach((contact) => {
-  contact.addEventListener('click', () => selectChat(contact.dataset.chatId));
-});
+contacts.forEach(contact => contact.addEventListener('click', () => selectChat(contact.dataset.chatId)));
 
 if (search) {
   search.addEventListener('input', () => {
     const query = search.value.trim().toLowerCase();
-    contacts.forEach((contact) => {
+    contacts.forEach(contact => {
       const config = chats[contact.dataset.chatId];
       const text = `${config?.name || ''} ${config?.role || ''}`.toLowerCase();
       contact.hidden = query ? !text.includes(query) : false;
@@ -267,7 +247,7 @@ if (search) {
   });
 }
 
-form.addEventListener('submit', async (event) => {
+form.addEventListener('submit', async event => {
   event.preventDefault();
   if (busy) return;
 
@@ -277,15 +257,13 @@ form.addEventListener('submit', async (event) => {
   input.value = '';
   input.style.height = 'auto';
   add('me', raw);
-
   busy = true;
   sendBtn.disabled = true;
   showTyping();
 
   try {
+    if (!allowedChatIds.includes(activeChat)) throw new Error('Deze chat is niet beschikbaar op deze pagina.');
     const config = chats[activeChat];
-    if (!config?.endpoint) throw new Error('Geen chatroute ingesteld.');
-
     const response = await fetch(config.endpoint, {
       method: 'POST',
       headers: apiHeaders({ 'Content-Type': 'application/json' }),
@@ -293,14 +271,11 @@ form.addEventListener('submit', async (event) => {
     });
 
     const data = await response.json().catch(() => ({}));
-    if (response.status === 403) {
-      throw new Error(data.error || 'Dit apparaat is niet goedgekeurd.');
-    }
+    if (response.status === 403) throw new Error(data.error || 'Dit apparaat is niet goedgekeurd.');
     if (!response.ok) throw new Error(data.error || `backend ${response.status}`);
 
     const reply = data.reply || data.error || '';
     if (!reply) throw new Error('Geen antwoord ontvangen.');
-
     removeTyping();
     add('bot', reply);
   } catch (error) {
@@ -315,7 +290,7 @@ form.addEventListener('submit', async (event) => {
   }
 });
 
-input.addEventListener('keydown', (event) => {
+input.addEventListener('keydown', event => {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
     form.requestSubmit();
