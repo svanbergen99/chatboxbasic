@@ -30,6 +30,26 @@ const chats = {
     avatarClass: 'diva-avatar',
     messageClass: 'diva',
   },
+  '3': {
+    name: 'Casey',
+    role: 'Chatbox 3 · Collega',
+    tagline: 'Collega-assistent Casey.',
+    placeholder: 'Typ je bericht aan Casey...',
+    endpoint: './api/chat/3',
+    icon: 'fa-user-tie',
+    avatarClass: 'aero-avatar',
+    messageClass: 'aero',
+  },
+  '4': {
+    name: 'Dee',
+    role: 'Chatbox 4 · Collega',
+    tagline: 'Collega-assistent Dee.',
+    placeholder: 'Typ je bericht aan Dee...',
+    endpoint: './api/chat/4',
+    icon: 'fa-comments',
+    avatarClass: 'diva-avatar',
+    messageClass: 'diva',
+  },
 };
 
 let activeChat = localStorage.getItem('kcd_active_chat') || '1';
@@ -272,12 +292,10 @@ form.addEventListener('submit', async (event) => {
       body: JSON.stringify({ message: raw }),
     });
 
+    const data = await response.json().catch(() => ({}));
     if (response.status === 403) {
-      const data = await response.json().catch(() => ({}));
       throw new Error(data.error || 'Dit apparaat is niet goedgekeurd.');
     }
-
-    const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `backend ${response.status}`);
 
     const reply = data.reply || data.error || '';
