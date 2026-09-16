@@ -1,0 +1,19 @@
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Runtime data
+/data/
+/logs/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Local editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
